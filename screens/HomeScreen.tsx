@@ -283,7 +283,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   }
 
   return (
-    <View style={styles.flex}>
+    <LinearGradient colors={Colors.bgHomeGradient} style={styles.flex}>
       {/* First-visit tutorial overlay */}
       <Modal visible={showTutorial} transparent animationType="fade">
         <View style={styles.tutorialOverlay}>
@@ -299,8 +299,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
         </View>
       </Modal>
 
-      <LinearGradient colors={Colors.bgHomeGradient} style={styles.flex}>
-        <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
           {/* Header — title centered, profile icon right */}
           <View style={styles.header}>
             <View style={{ width: 36 }} />
@@ -335,19 +334,19 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
             {activeTab === 'graphic' ? renderGraphicView() : renderListView()}
           </View>
         </SafeAreaView>
-      </LinearGradient>
 
-      <GNB
-        activeTab={activeTab === 'report' ? 'report' : activeTab}
-        onReport={() => navigation.navigate('Report')}
-        onGraphic={() => setActiveTab('graphic')}
-        onList={() => setActiveTab('list')}
-        onCreate={() => navigation.navigate('Create')}
-      />
-    </View>
+        <GNB
+          activeTab={activeTab === 'report' ? 'report' : activeTab}
+          onReport={() => navigation.navigate('Report')}
+          onGraphic={() => setActiveTab('graphic')}
+          onList={() => setActiveTab('list')}
+          onCreate={() => navigation.navigate('Create')}
+        />
+    </LinearGradient>
   )
 }
 
+// Remove unused View import reference - LinearGradient is the root now
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   safeArea: { flex: 1 },

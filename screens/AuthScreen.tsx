@@ -11,55 +11,67 @@ import ConstellationGraphic from '../components/ConstellationGraphic'
 import type { ScreenProps } from '../types/navigation'
 
 const STARS = [
-  { top: '8%',  left: '12%', size: 2   },
-  { top: '5%',  left: '75%', size: 1.5 },
-  { top: '22%', left: '30%', size: 1   },
-  { top: '12%', left: '88%', size: 2   },
-  { top: '72%', left: '5%',  size: 2   },
-  { top: '80%', left: '85%', size: 1.5 },
-  { top: '68%', left: '60%', size: 2.5 },
+  { top: '6%',  left: '10%', size: 2   },
+  { top: '4%',  left: '78%', size: 1.5 },
+  { top: '18%', left: '52%', size: 2.5 },
+  { top: '22%', left: '28%', size: 1   },
+  { top: '10%', left: '90%', size: 2   },
+  { top: '74%', left: '6%',  size: 2   },
+  { top: '82%', left: '88%', size: 1.5 },
+  { top: '70%', left: '62%', size: 1   },
 ]
 
+function getErrorMessage(e: any): string {
+  const msg = (e?.message ?? '').toLowerCase()
+  if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+    return '이메일 인증이 필요해요. 가입 시 받은 인증 메일을 확인해주세요.\n\n(개발 환경에서는 Supabase 대시보드 → Authentication → Providers → Email → "Confirm email" 비활성화)'
+  }
+  if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
+    return '이메일 또는 비밀번호가 올바르지 않아요.'
+  }
+  if (msg.includes('user already registered')) {
+    return '이미 가입된 이메일이에요. 로그인해주세요.'
+  }
+  if (msg.includes('password')) {
+    return '비밀번호는 6자 이상이어야 해요.'
+  }
+  return e?.message ?? '오류가 발생했어요. 다시 시도해주세요.'
+}
+
 export default function AuthScreen({ navigation }: ScreenProps<'Auth'>) {
-  const { signIn, signUp, signInWithKakao } = useAuth()
+  const { signIn, signUp } = useAuth()
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
   const [loading, setLoading]   = useState(false)
-  const [showEmail, setShowEmail] = useState(false)
 
-  const handleKakao = async () => {
-    setLoading(true)
-    try {
-      await signInWithKakao(navigation)
-    } catch (e: any) {
-      const msg = e.message ?? ''
-      if (msg.includes('provider') || msg.includes('not enabled') || msg.includes('validation')) {
-        Alert.alert('카카오 로그인 준비 중', '카카오 로그인은 현재 설정 중이에요.\n이메일로 로그인해 주세요.')
-      } else {
-        Alert.alert('로그인 오류', msg)
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleEmailSubmit = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert('이메일과 비밀번호를 입력해주세요.')
+  const handleSubmit = async () => {
+    const emailTrimmed = email.trim()
+    if (!emailTrimmed || !password) {
+      Alert.alert('입력 오류', '이메일과 비밀번호를 모두 입력해주세요.')
       return
     }
+    const emailReg = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailReg.test(emailTrimmed)) {
+      Alert.alert('입력 오류', '올바른 이메일 형식을 입력해주세요.')
+      return
+    }
+    if (password.length < 6) {
+      Alert.alert('입력 오류', '비밀번호는 6자 이상이어야 해요.')
+      return
+    }
+
     setLoading(true)
     try {
       if (isSignUp) {
-        await signUp(email.trim(), password)
+        await signUp(emailTrimmed, password)
         navigation.replace('Onboarding')
       } else {
-        await signIn(email.trim(), password)
+        await signIn(emailTrimmed, password)
         navigation.replace('Home')
       }
     } catch (e: any) {
-      Alert.alert('오류', e.message)
+      Alert.alert('오류', getErrorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -67,16 +79,22 @@ export default function AuthScreen({ navigation }: ScreenProps<'Auth'>) {
 
   return (
     <LinearGradient colors={['#050928', '#080711']} style={styles.gradient}>
-      {STARS.map((star, i) => (
+      {STARS.map((s, i) => (
         <View key={i} style={[styles.star, {
-          top: star.top as any, left: star.left as any,
-          width: star.size, height: star.size, borderRadius: star.size / 2,
+          top: s.top as any, left: s.left as any,
+          width: s.size, height: s.size, borderRadius: s.size / 2,
         }]} />
       ))}
 
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {/* 태그라인 */}
           <Text style={styles.tagline}>오늘의 별이 내일의 위로가 되도록</Text>
 
@@ -90,67 +108,48 @@ export default function AuthScreen({ navigation }: ScreenProps<'Auth'>) {
             <ConstellationGraphic />
           </View>
 
-          {/* 카카오 로그인 버튼 */}
-          <TouchableOpacity
-            style={[styles.kakaoBtn, loading && styles.btnDisabled]}
-            onPress={handleKakao}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.kakaoIconText}>💬</Text>
-            <Text style={styles.kakaoText}>
-              {loading ? '로그인 중...' : '카카오 로그인'}
-            </Text>
-          </TouchableOpacity>
+          {/* 이메일/비밀번호 폼 */}
+          <View style={styles.form}>
+            <TextInput
+              style={styles.input}
+              placeholder="이메일"
+              placeholderTextColor="#636887"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoCorrect={false}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="비밀번호 (6자 이상)"
+              placeholderTextColor="#636887"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
 
-          {/* 법적 텍스트 */}
-          <Text style={styles.legal}>
-            로그인 시,{'  '}
-            <Text style={styles.legalUnderline}>서비스 이용약관</Text>
-            에 동의하는 것으로 간주합니다.
-          </Text>
-
-          {/* 이메일 로그인 토글 (개발/테스트용) */}
-          {!showEmail ? (
-            <TouchableOpacity onPress={() => setShowEmail(true)} style={styles.emailToggle}>
-              <Text style={styles.emailToggleText}>이메일로 로그인</Text>
+            <TouchableOpacity
+              style={[styles.submitBtn, loading && styles.disabled]}
+              onPress={handleSubmit}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading
+                ? <ActivityIndicator color="#fbfcfe" />
+                : <Text style={styles.submitText}>{isSignUp ? '시작하기' : '로그인'}</Text>
+              }
             </TouchableOpacity>
-          ) : (
-            <View style={styles.emailForm}>
-              <TextInput
-                style={styles.input}
-                placeholder="이메일"
-                placeholderTextColor="#636887"
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="비밀번호 (6자 이상)"
-                placeholderTextColor="#636887"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
-              <TouchableOpacity
-                style={[styles.emailSubmitBtn, loading && styles.btnDisabled]}
-                onPress={handleEmailSubmit}
-                disabled={loading}
-              >
-                {loading
-                  ? <ActivityIndicator color="#fbfcfe" />
-                  : <Text style={styles.emailSubmitText}>{isSignUp ? '회원가입' : '로그인'}</Text>
-                }
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setIsSignUp(v => !v)} style={styles.emailToggle}>
-                <Text style={styles.emailToggleText}>
-                  {isSignUp ? '이미 계정이 있어요' : '계정 만들기'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+
+            <TouchableOpacity
+              onPress={() => setIsSignUp(v => !v)}
+              style={styles.toggleWrap}
+            >
+              <Text style={styles.toggleText}>
+                {isSignUp ? '이미 계정이 있어요' : '계정이 없으신가요?  시작하기'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
@@ -164,7 +163,7 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     alignItems: 'center',
-    paddingTop: 72,
+    paddingTop: 68,
     paddingBottom: 40,
     paddingHorizontal: 20,
   },
@@ -173,43 +172,14 @@ const styles = StyleSheet.create({
     color: '#acb5ff',
     fontFamily: 'Pretendard-Medium',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
+    letterSpacing: 0.3,
   },
-  logoWrap:           { marginBottom: 28 },
-  constellationWrap:  { marginBottom: 40 },
-  kakaoBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#fee500',
-    width: 350,
-    height: 53,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  btnDisabled: { opacity: 0.6 },
-  kakaoIconText: { fontSize: 20 },
-  kakaoText: {
-    fontSize: 16,
-    fontFamily: 'Pretendard-SemiBold',
-    color: 'rgba(26,28,32,0.85)',
-  },
-  legal: {
-    fontSize: 12,
-    color: '#9a9fb3',
-    fontFamily: 'Pretendard-Medium',
-    textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: 16,
-    paddingHorizontal: 20,
-  },
-  legalUnderline: { textDecorationLine: 'underline' },
-  emailToggle:     { paddingVertical: 12, alignItems: 'center' },
-  emailToggleText: { fontSize: 13, color: '#acb5ff', fontFamily: 'Pretendard-Medium' },
-  emailForm:       { width: 350, gap: 10, marginTop: 8 },
+  logoWrap:          { marginBottom: 32 },
+  constellationWrap: { marginBottom: 40 },
+  form: { width: 350, gap: 12 },
   input: {
-    backgroundColor: '#272936',
+    backgroundColor: 'rgba(39,41,54,0.9)',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -219,7 +189,7 @@ const styles = StyleSheet.create({
     borderColor: '#2D3052',
     fontFamily: 'Pretendard-Regular',
   },
-  emailSubmitBtn: {
+  submitBtn: {
     backgroundColor: '#534dfc',
     borderRadius: 12,
     height: 53,
@@ -227,5 +197,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 4,
   },
-  emailSubmitText: { color: '#fbfcfe', fontSize: 16, fontFamily: 'Pretendard-SemiBold' },
+  disabled:    { opacity: 0.6 },
+  submitText:  { color: '#fbfcfe', fontSize: 16, fontFamily: 'Pretendard-SemiBold' },
+  toggleWrap:  { alignItems: 'center', paddingVertical: 14 },
+  toggleText:  { fontSize: 13, color: '#acb5ff', fontFamily: 'Pretendard-Medium' },
 })

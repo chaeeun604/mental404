@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 16,
-    backgroundColor: '#101640',
+    backgroundColor: 'transparent',
   },
   circleBtn: {
     width: 56,
