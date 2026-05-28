@@ -1,14 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator,
-  KeyboardAvoidingView, Platform, ScrollView,
+  KeyboardAvoidingView, Platform, ScrollView, Animated, Easing,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useAuth } from '../hooks/useAuth'
+import { getAllContents } from '../api/contents'
 import PixelLogo from '../components/PixelLogo'
 import ConstellationGraphic from '../components/ConstellationGraphic'
 import type { ScreenProps } from '../types/navigation'
+
+// 첫 번째 마운트 여부 (스플래시에서 넘어올 때만 입장 애니메이션)
+let _firstAuthMount = true
 
 const STARS = [
   { top: '6%',  left: '10%', size: 2   },
@@ -23,18 +27,14 @@ const STARS = [
 
 function getErrorMessage(e: any): string {
   const msg = (e?.message ?? '').toLowerCase()
-  if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
-    return '이메일 인증이 필요해요. 가입 시 받은 인증 메일을 확인해주세요.\n\n(개발 환경에서는 Supabase 대시보드 → Authentication → Providers → Email → "Confirm email" 비활성화)'
-  }
-  if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
+  if (msg.includes('email not confirmed') || msg.includes('not confirmed'))
+    return '이메일 인증이 필요해요. 가입 시 받은 인증 메일을 확인해주세요.'
+  if (msg.includes('invalid login credentials') || msg.includes('invalid credentials'))
     return '이메일 또는 비밀번호가 올바르지 않아요.'
-  }
-  if (msg.includes('user already registered')) {
+  if (msg.includes('user already registered'))
     return '이미 가입된 이메일이에요. 로그인해주세요.'
-  }
-  if (msg.includes('password')) {
+  if (msg.includes('password'))
     return '비밀번호는 6자 이상이어야 해요.'
-  }
   return e?.message ?? '오류가 발생했어요. 다시 시도해주세요.'
 }
 
@@ -45,14 +45,39 @@ export default function AuthScreen({ navigation }: ScreenProps<'Auth'>) {
   const [isSignUp, setIsSignUp] = useState(false)
   const [loading, setLoading]   = useState(false)
 
+  // 입장 애니메이션 — 스플래시에서 MORBIT이 올라와서 자리에 안착
+  const isEntrance = useRef(_firstAuthMount)
+  const logoY      = useRef(new Animated.Value(_firstAuthMount ? 260 : 0)).current
+  const restOpacity = useRef(new Animated.Value(_firstAuthMount ? 0 : 1)).current
+
+  useEffect(() => {
+    if (!isEntrance.current) return
+    _firstAuthMount = false
+
+    // MORBIT이 위로 올라가 자리에 안착 (260 → 0)
+    Animated.timing(logoY, {
+      toValue: 0,
+      duration: 520,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start()
+
+    // 나머지 요소는 MORBIT 안착 후 페이드인
+    Animated.timing(restOpacity, {
+      toValue: 1,
+      duration: 380,
+      delay: 340,
+      useNativeDriver: true,
+    }).start()
+  }, [])
+
   const handleSubmit = async () => {
     const emailTrimmed = email.trim()
     if (!emailTrimmed || !password) {
       Alert.alert('입력 오류', '이메일과 비밀번호를 모두 입력해주세요.')
       return
     }
-    const emailReg = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailReg.test(emailTrimmed)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
       Alert.alert('입력 오류', '올바른 이메일 형식을 입력해주세요.')
       return
     }
@@ -65,10 +90,13 @@ export default function AuthScreen({ navigation }: ScreenProps<'Auth'>) {
     try {
       if (isSignUp) {
         await signUp(emailTrimmed, password)
-        navigation.replace('Onboarding')
+        setPassword('')
+        setIsSignUp(false)
+        Alert.alert('가입 완료 ✦', '환영해요! 이제 로그인해주세요.')
       } else {
-        await signIn(emailTrimmed, password)
-        navigation.replace('Home')
+        const user = await signIn(emailTrimmed, password)
+        const contents = await getAllContents(user.id)
+        navigation.replace(contents.length === 0 ? 'Onboarding' : 'Home')
       }
     } catch (e: any) {
       Alert.alert('오류', getErrorMessage(e))
@@ -86,70 +114,67 @@ export default function AuthScreen({ navigation }: ScreenProps<'Auth'>) {
         }]} />
       ))}
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* 태그라인 */}
-          <Text style={styles.tagline}>오늘의 별이 내일의 위로가 되도록</Text>
+          {/* 태그라인 — 나머지 요소와 함께 페이드인 */}
+          <Animated.View style={{ opacity: restOpacity }}>
+            <Text style={styles.tagline}>오늘의 별이 내일의 위로가 되도록</Text>
+          </Animated.View>
 
-          {/* 픽셀 로고 */}
-          <View style={styles.logoWrap}>
+          {/* MORBIT 픽셀 로고 — 스플래시에서 올라와 착지 */}
+          <Animated.View style={[styles.logoWrap, { transform: [{ translateY: logoY }] }]}>
             <PixelLogo dotSize={5.538} gap={1.107} letterSpacing={4} />
-          </View>
+          </Animated.View>
 
-          {/* 별자리 그래픽 */}
-          <View style={styles.constellationWrap}>
-            <ConstellationGraphic />
-          </View>
+          {/* 별자리 그래픽 + 폼 — 함께 페이드인 */}
+          <Animated.View style={[styles.bottomContent, { opacity: restOpacity }]}>
+            <View style={styles.constellationWrap}>
+              <ConstellationGraphic />
+            </View>
 
-          {/* 이메일/비밀번호 폼 */}
-          <View style={styles.form}>
-            <TextInput
-              style={styles.input}
-              placeholder="이메일"
-              placeholderTextColor="#636887"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoCorrect={false}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="비밀번호 (6자 이상)"
-              placeholderTextColor="#636887"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
+            <View style={styles.form}>
+              <TextInput
+                style={styles.input}
+                placeholder="이메일"
+                placeholderTextColor="#636887"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoCorrect={false}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="비밀번호 (6자 이상)"
+                placeholderTextColor="#636887"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
 
-            <TouchableOpacity
-              style={[styles.submitBtn, loading && styles.disabled]}
-              onPress={handleSubmit}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              {loading
-                ? <ActivityIndicator color="#fbfcfe" />
-                : <Text style={styles.submitText}>{isSignUp ? '시작하기' : '로그인'}</Text>
-              }
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.submitBtn, loading && styles.disabled]}
+                onPress={handleSubmit}
+                disabled={loading}
+                activeOpacity={0.85}
+              >
+                {loading
+                  ? <ActivityIndicator color="#fbfcfe" />
+                  : <Text style={styles.submitText}>{isSignUp ? '시작하기' : '로그인'}</Text>
+                }
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => setIsSignUp(v => !v)}
-              style={styles.toggleWrap}
-            >
-              <Text style={styles.toggleText}>
-                {isSignUp ? '이미 계정이 있어요' : '계정이 없으신가요?  시작하기'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity onPress={() => setIsSignUp(v => !v)} style={styles.toggleWrap}>
+                <Text style={styles.toggleText}>
+                  {isSignUp ? '이미 계정이 있어요' : '계정이 없으신가요?  시작하기'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
@@ -163,24 +188,25 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     alignItems: 'center',
-    paddingTop: 68,
+    paddingTop: 80,
     paddingBottom: 40,
     paddingHorizontal: 20,
   },
   tagline: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#acb5ff',
     fontFamily: 'Pretendard-Medium',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
     letterSpacing: 0.3,
   },
-  logoWrap:          { marginBottom: 32 },
-  constellationWrap: { marginBottom: 40 },
-  form: { width: 350, gap: 12 },
+  logoWrap:     { marginBottom: 20 },
+  bottomContent: { alignItems: 'center', width: '100%' },
+  constellationWrap: { marginBottom: 28 },
+  form: { width: '100%', maxWidth: 350, gap: 12 },
   input: {
     backgroundColor: 'rgba(39,41,54,0.9)',
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
@@ -191,8 +217,8 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     backgroundColor: '#534dfc',
-    borderRadius: 12,
-    height: 53,
+    borderRadius: 14,
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,

@@ -11,6 +11,7 @@ import {
   Image,
   Platform,
   Modal,
+  PanResponder,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -43,16 +44,16 @@ async function markTutorialSeen(): Promise<void> {
 }
 
 const { width } = Dimensions.get('window')
-const PLANET_SIZE = 220
+const PLANET_SIZE = 290
 
-// Bubble positions around the planet — matched to Figma layout
-// Planet (220px) centered in container (360×320), planet center = (180, 160)
+// Figma 기준 버블 위치 — 행성 위에 흩어져 배치
+// 컨테이너: 전체 너비 × 380px, 행성(290px) 중앙 배치
 const BUBBLE_POSITIONS: Array<{ top?: number; bottom?: number; left?: number; right?: number }> = [
-  { top: 16,  left: 14  }, // 상단 왼쪽
-  { top: 52,  right: 8  }, // 상단 오른쪽
-  { top: 82,  left: 4   }, // 중단 왼쪽 (이미지)
-  { top: 112, left: 72  }, // 중앙 아래
-  { top: 220, left: 14  }, // 하단 왼쪽
+  { top: 30,  left: 28  }, // 상단 왼쪽
+  { top: 55,  right: 22 }, // 상단 오른쪽
+  { top: 140, left: 18  }, // 중단 왼쪽 (이미지)
+  { top: 185, right: 20 }, // 중단 오른쪽
+  { top: 255, left: 40  }, // 하단 왼쪽
 ]
 
 function truncate(text: string, max: number) {
@@ -112,6 +113,25 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     setCurrentTagIdx((prev) => (prev + 1) % tags.length)
   }
 
+  // 스와이프 제스처 (행성 영역)
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 15 && Math.abs(g.dy) < 40,
+      onPanResponderRelease: (_, g) => {
+        if (g.dx < -50) goRight()
+        else if (g.dx > 50) goLeft()
+      },
+    })
+  ).current
+
+  // 리스트뷰 진입 시 현재 그래픽 태그 기본 선택
+  const switchToList = () => {
+    if (selectedTagId === null && tags.length > 0) {
+      setSelectedTagId(currentTag?.id ?? tags[0].id)
+    }
+    setActiveTab('list')
+  }
+
   const renderGraphicView = () => {
     if (tagsLoading || contentsLoading) {
       return (
@@ -136,8 +156,8 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
 
     return (
       <View style={styles.graphicArea}>
-        {/* Planet container — planet centered, bubbles float around it */}
-        <View style={styles.planetContainer}>
+        {/* Planet container — planet centered, bubbles float around it, swipe to change tag */}
+        <View style={styles.planetContainer} {...panResponder.panHandlers}>
           {/* Centered planet */}
           <View style={styles.planetCenter}>
             <TouchableOpacity
@@ -242,44 +262,62 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     )
   }
 
-  const renderListView = () => (
-    <View style={styles.flex}>
-      {/* Tag filter chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tagChipsRow}
-        style={styles.tagChipsScroll}
-      >
-        {tags.map((tag) => {
-          const isActive = selectedTagId === tag.id
-          return (
-            <TouchableOpacity
-              key={tag.id}
-              style={[styles.tagChip, isActive && styles.tagChipActive]}
-              onPress={() => setSelectedTagId(isActive ? null : tag.id)}
-            >
-              <Text style={[styles.tagChipText, isActive && styles.tagChipTextActive]}>
-                {tag.name}
-              </Text>
-            </TouchableOpacity>
-          )
-        })}
-      </ScrollView>
+  const renderListView = () => {
+    // 현재 선택 태그 기록 수
+    const tagItemCount = selectedTagId
+      ? contents.filter(c => c.content_tags?.some(ct => ct.tag_id === selectedTagId)).length
+      : 0
 
-      <Text style={styles.totalCount}>전체 {listContents.length}</Text>
+    return (
+      <View style={styles.flex}>
+        {/* 태그 칩 (태그별 개수 표시, 기본 첫 번째 선택) */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tagChipsRow}
+          style={styles.tagChipsScroll}
+        >
+          {tags.map(tag => {
+            const isActive = selectedTagId === tag.id
+            const count = contents.filter(c => c.content_tags?.some(ct => ct.tag_id === tag.id)).length
+            return (
+              <TouchableOpacity
+                key={tag.id}
+                style={[styles.tagChip, isActive && styles.tagChipActive]}
+                onPress={() => setSelectedTagId(tag.id)}
+              >
+                <Text style={[styles.tagChipText, isActive && styles.tagChipTextActive]}>
+                  {tag.name}
+                </Text>
+                <View style={[styles.tagCountBadge, isActive && styles.tagCountBadgeActive]}>
+                  <Text style={[styles.tagCountText, isActive && styles.tagCountTextActive]}>
+                    {count}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )
+          })}
+        </ScrollView>
 
-      <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-        {contentsLoading ? (
-          <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
-        ) : listContents.length === 0 ? (
-          <Text style={styles.emptyText}>아직 기록이 없어요.</Text>
-        ) : (
-          listContents.map(item => renderListCard(item))
+        {/* 선택 태그 기록 수 */}
+        {selectedTagId && (
+          <Text style={styles.totalCount}>{tagItemCount}개의 별</Text>
         )}
-      </ScrollView>
-    </View>
-  )
+
+        <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+          {contentsLoading ? (
+            <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
+          ) : listContents.length === 0 ? (
+            <View style={styles.emptyCenter}>
+              <Text style={styles.emptyText}>이 태그에 기록이 없어요.{'\n'}+ 버튼으로 추가해보세요.</Text>
+            </View>
+          ) : (
+            listContents.map(item => renderListCard(item))
+          )}
+        </ScrollView>
+      </View>
+    )
+  }
 
   const dismissTutorial = () => {
     setShowTutorial(false)
@@ -288,6 +326,10 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
 
   return (
     <LinearGradient colors={Colors.bgHomeGradient} style={styles.flex}>
+      {/* 우주 배경 장식 — 좌우 행성 블러 */}
+      <View style={styles.bgPlanetLeft} />
+      <View style={styles.bgPlanetRight} />
+
       {/* First-visit tutorial overlay */}
       <Modal visible={showTutorial} transparent animationType="fade">
         <View style={styles.tutorialOverlay}>
@@ -343,17 +385,37 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           activeTab={activeTab === 'report' ? 'report' : activeTab}
           onReport={() => navigation.navigate('Report')}
           onGraphic={() => setActiveTab('graphic')}
-          onList={() => setActiveTab('list')}
+          onList={switchToList}
           onCreate={() => navigation.navigate('Create')}
         />
     </LinearGradient>
   )
 }
 
-// Remove unused View import reference - LinearGradient is the root now
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   safeArea: { flex: 1 },
+  // 배경 장식 행성 (Figma: 좌우 부분 노출 행성)
+  bgPlanetLeft: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: '#3B21FB',
+    opacity: 0.08,
+    left: -120,
+    top: 240,
+  },
+  bgPlanetRight: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: '#4d3aff',
+    opacity: 0.07,
+    right: -100,
+    top: 300,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -372,7 +434,7 @@ const styles = StyleSheet.create({
   profileBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   banner: {
     marginHorizontal: 20,
-    marginBottom: 12,
+    marginBottom: 6,
     borderRadius: 11,
     overflow: 'hidden',
   },
@@ -397,26 +459,25 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 8,
-    gap: 20,
+    gap: 16,
   },
   planetContainer: {
-    width: 360,
-    height: 320,
+    width: width,
+    height: 380,
     position: 'relative',
   },
   planetCenter: {
     position: 'absolute',
-    top: (320 - PLANET_SIZE) / 2,
-    left: (360 - PLANET_SIZE) / 2,
+    top: (380 - PLANET_SIZE) / 2,
+    left: (width - PLANET_SIZE) / 2,
   },
   bubble: {
     position: 'absolute',
   },
   overflowBadge: {
     position: 'absolute',
-    bottom: 20,
-    right: 20,
+    bottom: 30,
+    right: 24,
   },
   overflowGradient: {
     width: 48,
@@ -446,29 +507,42 @@ const styles = StyleSheet.create({
   tagChipsScroll: { flexShrink: 0 },
   tagChipsRow: {
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingTop: 4,
+    paddingBottom: 6,
     gap: 12,
     flexDirection: 'row',
     alignItems: 'center',
   },
   tagChip: {
-    height: 40,
-    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 50,
     backgroundColor: '#2d3052',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   tagChipActive: { backgroundColor: Colors.primary },
-  tagChipText:       { fontSize: 14, color: '#fbfcfe', fontFamily: 'Pretendard-Regular' },
-  tagChipTextActive: { fontFamily: 'Pretendard-Medium' },
+  tagChipText:       { fontSize: 13, color: '#fbfcfe', fontFamily: 'Pretendard-Regular' },
+  tagChipTextActive: { fontFamily: 'Pretendard-SemiBold' },
+  tagCountBadge: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    marginLeft: 4,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  tagCountBadgeActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
+  tagCountText:       { fontSize: 11, color: 'rgba(255,255,255,0.7)', fontFamily: 'Pretendard-Regular' },
+  tagCountTextActive: { color: '#fbfcfe', fontFamily: 'Pretendard-Medium' },
   totalCount: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.6)',
     paddingHorizontal: 20,
     paddingBottom: 8,
-    fontFamily: 'Pretendard-Medium',
+    paddingTop: 2,
+    fontFamily: 'Pretendard-Regular',
   },
   listContent: { paddingHorizontal: 20, paddingBottom: 24, gap: 12 },
 

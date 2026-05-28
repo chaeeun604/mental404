@@ -3,12 +3,13 @@ import { View, Animated, StyleSheet } from 'react-native'
 import { useAuth } from '../hooks/useAuth'
 import { getAllContents } from '../api/contents'
 import PixelLogo from '../components/PixelLogo'
+import type { RootStackParamList } from '../types/navigation'
 import type { ScreenProps } from '../types/navigation'
 
 export default function SplashScreen({ navigation }: ScreenProps<'Splash'>) {
   const { session, loading: authLoading } = useAuth()
-  const opacity  = useRef(new Animated.Value(0)).current
-  const scale    = useRef(new Animated.Value(0.92)).current
+  const opacity   = useRef(new Animated.Value(0)).current
+  const scale     = useRef(new Animated.Value(0.92)).current
   const navigated = useRef(false)
 
   useEffect(() => {
@@ -23,22 +24,17 @@ export default function SplashScreen({ navigation }: ScreenProps<'Splash'>) {
 
     const go = async () => {
       navigated.current = true
-
-      if (!session) {
-        navigation.replace('Auth')
-        return
+      let target: keyof RootStackParamList = 'Auth'
+      if (session) {
+        try {
+          const contents = await getAllContents(session.user.id)
+          target = contents.length === 0 ? 'Onboarding' : 'Home'
+        } catch { target = 'Home' }
       }
-
-      // 기록이 있으면 홈, 없으면 온보딩
-      try {
-        const contents = await getAllContents(session.user.id)
-        navigation.replace(contents.length === 0 ? 'Onboarding' : 'Home')
-      } catch {
-        navigation.replace('Home')
-      }
+      navigation.replace(target)
     }
 
-    const timer = setTimeout(go, 2000)
+    const timer = setTimeout(go, 1800)
     return () => clearTimeout(timer)
   }, [authLoading, session])
 
