@@ -45,9 +45,16 @@ export default function MyPageScreen({ navigation }: ScreenProps<'MyPage'>) {
   }
 
   const handleSignOut = () => {
-    Alert.alert('로그아웃', '로그아웃 하시겠습니까?', [
+    Alert.alert('로그아웃', '로그아웃 하시겠어요?', [
       { text: '취소', style: 'cancel' },
-      { text: '로그아웃', style: 'destructive', onPress: () => signOut() },
+      {
+        text: '로그아웃',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut()
+          navigation.reset({ index: 0, routes: [{ name: 'Auth' }] })
+        },
+      },
     ])
   }
 
@@ -120,9 +127,14 @@ export default function MyPageScreen({ navigation }: ScreenProps<'MyPage'>) {
             </TouchableOpacity>
           </View>
 
-          {/* Sign out */}
-          <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
-            <Text style={styles.signOutText}>회원 탈퇴</Text>
+          {/* 로그아웃 */}
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut} activeOpacity={0.8}>
+            <Text style={styles.logoutText}>로그아웃</Text>
+          </TouchableOpacity>
+
+          {/* 회원 탈퇴 */}
+          <TouchableOpacity style={styles.withdrawBtn} onPress={handleNotReady}>
+            <Text style={styles.withdrawText}>회원 탈퇴</Text>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
@@ -183,9 +195,27 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   linkLabel: { fontSize: 15, color: Colors.textPrimary },
-  signOutBtn: {
+  logoutBtn: {
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    height: 56,
     alignItems: 'center',
-    paddingVertical: 16,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
   },
-  signOutText: { fontSize: 13, color: Colors.textTertiary },
+  logoutText: {
+    fontSize: 16,
+    color: Colors.textPrimary,
+    fontFamily: 'Pretendard-SemiBold',
+  },
+  withdrawBtn: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  withdrawText: {
+    fontSize: 13,
+    color: Colors.textTertiary,
+    fontFamily: 'Pretendard-Regular',
+  },
 })
