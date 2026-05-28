@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   View,
   Text,
@@ -8,10 +8,13 @@ import {
   ScrollView,
   ActivityIndicator,
   Image,
+  Platform,
+  Modal,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import * as SecureStore from 'expo-secure-store'
 import { useAuth } from '../hooks/useAuth'
 import { useTags } from '../hooks/useTags'
 import { getAllContents } from '../api/contents'
@@ -21,6 +24,22 @@ import GNB from '../components/GNB'
 import { Colors } from '../constants/colors'
 import type { ScreenProps } from '../types/navigation'
 import type { ContentWithTags } from '../types/database'
+
+const TUTORIAL_KEY = 'morbit_home_tutorial_seen'
+
+async function hasTutorialSeen(): Promise<boolean> {
+  try {
+    if (Platform.OS === 'web') return localStorage.getItem(TUTORIAL_KEY) === 'true'
+    return (await SecureStore.getItemAsync(TUTORIAL_KEY)) === 'true'
+  } catch { return false }
+}
+
+async function markTutorialSeen(): Promise<void> {
+  try {
+    if (Platform.OS === 'web') localStorage.setItem(TUTORIAL_KEY, 'true')
+    else await SecureStore.setItemAsync(TUTORIAL_KEY, 'true')
+  } catch {}
+}
 
 const { width } = Dimensions.get('window')
 const PLANET_SIZE = 220
@@ -46,9 +65,10 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const { tags, loading: tagsLoading } = useTags(userId)
   const [contents, setContents] = useState<ContentWithTags[]>([])
   const [contentsLoading, setContentsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'report' | 'graphic' | 'list'>('graphic')
+  const [activeTab, setActiveTab]     = useState<'report' | 'graphic' | 'list'>('graphic')
   const [currentTagIdx, setCurrentTagIdx] = useState(0)
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
+  const [showTutorial, setShowTutorial]   = useState(false)
 
   const loadContents = useCallback(() => {
     if (!userId) return
@@ -59,8 +79,14 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
       .finally(() => setContentsLoading(false))
   }, [userId])
 
+  // Fix: include loadContents in deps so it reruns when userId becomes available
   useEffect(() => {
     loadContents()
+  }, [loadContents])
+
+  // Show tutorial on first home visit
+  useEffect(() => {
+    hasTutorialSeen().then(seen => { if (!seen) setShowTutorial(true) })
   }, [])
 
   const currentTag = tags[currentTagIdx] ?? null
@@ -169,77 +195,110 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     )
   }
 
+  const renderListCard = (item: ContentWithTags) => {
+    const dateStr = new Date(item.created_at).toLocaleDateString('ko-KR', {
+      month: 'long', day: 'numeric',
+    })
+
+    if (item.type === 'image' && item.image_url) {
+      // Figma: full-width image card with dark overlay, date at bottom-left
+      return (
+        <TouchableOpacity
+          key={item.id}
+          style={styles.listCardImage}
+          onPress={() => navigation.navigate('ContentDetail', { contentId: item.id })}
+          activeOpacity={0.85}
+        >
+          <Image source={{ uri: item.image_url }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+          <View style={styles.listCardOverlay} />
+          <View style={styles.listDateRow}>
+            <Ionicons name="time-outline" size={16} color="#9A9FB3" />
+            <Text style={styles.listDate}>{dateStr}</Text>
+          </View>
+        </TouchableOpacity>
+      )
+    }
+
+    // Figma: text card with #2d3052 bg, text + date
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={styles.listCardText}
+        onPress={() => navigation.navigate('ContentDetail', { contentId: item.id })}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.listBody} numberOfLines={2}>
+          {item.body ? truncate(item.body, 80) : ''}
+        </Text>
+        <View style={styles.listDateRow}>
+          <Ionicons name="time-outline" size={16} color="#9A9FB3" />
+          <Text style={styles.listDate}>{dateStr}</Text>
+        </View>
+      </TouchableOpacity>
+    )
+  }
+
   const renderListView = () => (
     <View style={styles.flex}>
-      {/* Tag filter chips — no "전체" chip */}
-      <View style={styles.listHeader}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tagChipsRow}
-        >
-          {tags.map((tag) => {
-            const isActive = selectedTagId === tag.id
-            return (
-              <TouchableOpacity
-                key={tag.id}
-                style={[styles.tagChip, isActive && styles.tagChipActive]}
-                onPress={() => setSelectedTagId(isActive ? null : tag.id)}
-              >
-                <Text style={[styles.tagChipText, isActive && styles.tagChipTextActive]}>
-                  {tag.name}
-                </Text>
-              </TouchableOpacity>
-            )
-          })}
-        </ScrollView>
-        <Text style={styles.totalCount}>전체 {listContents.length}</Text>
-      </View>
-
+      {/* Tag filter chips */}
       <ScrollView
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tagChipsRow}
+        style={styles.tagChipsScroll}
       >
+        {tags.map((tag) => {
+          const isActive = selectedTagId === tag.id
+          return (
+            <TouchableOpacity
+              key={tag.id}
+              style={[styles.tagChip, isActive && styles.tagChipActive]}
+              onPress={() => setSelectedTagId(isActive ? null : tag.id)}
+            >
+              <Text style={[styles.tagChipText, isActive && styles.tagChipTextActive]}>
+                {tag.name}
+              </Text>
+            </TouchableOpacity>
+          )
+        })}
+      </ScrollView>
+
+      <Text style={styles.totalCount}>전체 {listContents.length}</Text>
+
+      <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
         {contentsLoading ? (
           <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
         ) : listContents.length === 0 ? (
           <Text style={styles.emptyText}>아직 기록이 없어요.</Text>
         ) : (
-          listContents.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.listCard}
-              onPress={() => navigation.navigate('ContentDetail', { contentId: item.id })}
-              activeOpacity={0.8}
-            >
-              {item.type === 'image' && item.image_url ? (
-                <Image source={{ uri: item.image_url }} style={styles.listThumbnail} />
-              ) : null}
-              <View style={styles.listCardText}>
-                <Text style={styles.listBody} numberOfLines={2}>
-                  {item.type === 'text' && item.body
-                    ? truncate(item.body, 64)
-                    : '이미지'}
-                </Text>
-                <View style={styles.listDateRow}>
-                  <Ionicons name="time-outline" size={14} color={Colors.textTertiary} />
-                  <Text style={styles.listDate}>
-                    {new Date(item.created_at).toLocaleDateString('ko-KR', {
-                      month: 'long',
-                      day: 'numeric',
-                    })}
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))
+          listContents.map(item => renderListCard(item))
         )}
       </ScrollView>
     </View>
   )
 
+  const dismissTutorial = () => {
+    setShowTutorial(false)
+    markTutorialSeen()
+  }
+
   return (
     <View style={styles.flex}>
+      {/* First-visit tutorial overlay */}
+      <Modal visible={showTutorial} transparent animationType="fade">
+        <View style={styles.tutorialOverlay}>
+          <View style={styles.tutorialCard}>
+            <Text style={styles.tutorialTitle}>✦ MORBIT에 오신 걸 환영해요!</Text>
+            <Text style={styles.tutorialBody}>
+              {'기록한 별들이 행성 주위에 떠올라요.\n< > 버튼으로 감정 태그를 바꾸고\n하단 ≡ 버튼으로 전체 목록을 볼 수 있어요.'}
+            </Text>
+            <TouchableOpacity style={styles.tutorialBtn} onPress={dismissTutorial}>
+              <Text style={styles.tutorialBtnText}>알겠어요 ✓</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <LinearGradient colors={Colors.bgHomeGradient} style={styles.flex}>
         <SafeAreaView style={styles.safeArea} edges={['top']}>
           {/* Header — title centered, profile icon right */}
@@ -381,50 +440,99 @@ const styles = StyleSheet.create({
     minWidth: 130,
     textAlign: 'center',
   },
-  listHeader: { paddingTop: 4 },
+  tagChipsScroll: { flexShrink: 0 },
   tagChipsRow: {
     paddingHorizontal: 20,
-    paddingVertical: 10,
-    gap: 8,
+    paddingTop: 12,
+    paddingBottom: 8,
+    gap: 12,
     flexDirection: 'row',
     alignItems: 'center',
   },
   tagChip: {
     height: 40,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: Colors.surfaceBorder,
+    paddingHorizontal: 18,
+    borderRadius: 50,
+    backgroundColor: '#2d3052',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 80,
   },
-  tagChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  tagChipText: { fontSize: 13, color: Colors.textSecondary },
-  tagChipTextActive: { color: Colors.textPrimary, fontWeight: '600' },
+  tagChipActive: { backgroundColor: Colors.primary },
+  tagChipText:       { fontSize: 14, color: '#fbfcfe', fontFamily: 'Pretendard-Regular' },
+  tagChipTextActive: { fontFamily: 'Pretendard-Medium' },
   totalCount: {
     fontSize: 14,
     color: 'rgba(255,255,255,0.7)',
     paddingHorizontal: 20,
-    paddingBottom: 6,
+    paddingBottom: 8,
+    fontFamily: 'Pretendard-Medium',
   },
-  listContent: { paddingHorizontal: 20, paddingBottom: 24, gap: 10 },
-  listCard: {
+  listContent: { paddingHorizontal: 20, paddingBottom: 24, gap: 12 },
+
+  // Image card: full-width, image fills card, overlay + date bottom-left
+  listCardImage: {
     height: 80,
     borderRadius: 15,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    flexDirection: 'row',
     overflow: 'hidden',
+    justifyContent: 'flex-end',
+    padding: 16,
   },
-  listThumbnail: { width: 80, height: 80 },
+  listCardOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 15,
+  },
+  // Text card: #2d3052 bg, padded
   listCardText: {
-    flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    justifyContent: 'space-between',
+    backgroundColor: '#2d3052',
+    borderRadius: 15,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 8,
   },
-  listBody: { fontSize: 14, color: Colors.textPrimary, lineHeight: 20 },
+  listBody:    { fontSize: 14, color: '#fbfcfe', lineHeight: 20, fontFamily: 'Pretendard-Medium' },
   listDateRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  listDate: { fontSize: 12, color: '#9A9FB3' },
+  listDate:    { fontSize: 12, color: '#9A9FB3', fontFamily: 'Pretendard-Regular' },
+
+  // Tutorial overlay
+  tutorialOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  tutorialCard: {
+    backgroundColor: '#fbfcfe',
+    borderRadius: 20,
+    padding: 28,
+    width: '100%',
+    gap: 16,
+    alignItems: 'center',
+  },
+  tutorialTitle: {
+    fontSize: 18,
+    fontFamily: 'Pretendard-SemiBold',
+    color: '#1A1C20',
+    textAlign: 'center',
+  },
+  tutorialBody: {
+    fontSize: 14,
+    color: '#444',
+    lineHeight: 22,
+    textAlign: 'center',
+    fontFamily: 'Pretendard-Regular',
+  },
+  tutorialBtn: {
+    backgroundColor: '#534dfc',
+    borderRadius: 12,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    marginTop: 4,
+  },
+  tutorialBtnText: {
+    color: '#fbfcfe',
+    fontSize: 15,
+    fontFamily: 'Pretendard-SemiBold',
+  },
 })

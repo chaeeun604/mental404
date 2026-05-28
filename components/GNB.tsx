@@ -2,7 +2,6 @@ import { View, TouchableOpacity, StyleSheet } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Colors } from '../constants/colors'
 
 type Tab = 'report' | 'graphic' | 'list'
 
@@ -18,44 +17,47 @@ export default function GNB({ activeTab, onReport, onGraphic, onList, onCreate }
   const insets = useSafeAreaInsets()
 
   return (
-    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 20) }]}>
       {/* Report circle */}
       <TouchableOpacity style={styles.circleBtn} onPress={onReport} activeOpacity={0.8}>
         <Ionicons
           name="bar-chart-outline"
-          size={22}
-          color={activeTab === 'report' ? Colors.primaryLight : Colors.textSecondary}
+          size={18}
+          color={activeTab === 'report' ? '#fbfcfe' : '#9A9AB3'}
         />
       </TouchableOpacity>
 
       {/* Graphic / List toggle pill */}
       <View style={styles.pill}>
-        <TouchableOpacity style={styles.pillHalf} onPress={onGraphic} activeOpacity={0.7}>
+        {/* Sliding active indicator */}
+        {activeTab === 'graphic' && <View style={[styles.pillIndicator, { left: 4 }]} />}
+        {activeTab === 'list'    && <View style={[styles.pillIndicator, { right: 4 }]} />}
+
+        <TouchableOpacity style={styles.pillHalf} onPress={onGraphic} activeOpacity={0.8}>
           <Ionicons
             name="planet-outline"
-            size={22}
-            color={activeTab === 'graphic' ? Colors.textPrimary : Colors.textTertiary}
+            size={20}
+            color={activeTab === 'graphic' ? '#1A1C20' : '#9A9AB3'}
           />
         </TouchableOpacity>
-        <View style={styles.pillDivider} />
-        <TouchableOpacity style={styles.pillHalf} onPress={onList} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.pillHalf} onPress={onList} activeOpacity={0.8}>
           <Ionicons
             name="list-outline"
-            size={22}
-            color={activeTab === 'list' ? Colors.textPrimary : Colors.textTertiary}
+            size={20}
+            color={activeTab === 'list' ? '#1A1C20' : '#9A9AB3'}
           />
         </TouchableOpacity>
       </View>
 
-      {/* Create circle with gradient */}
-      <TouchableOpacity style={styles.circleBtn} onPress={onCreate} activeOpacity={0.8}>
+      {/* Create circle — gradient */}
+      <TouchableOpacity onPress={onCreate} activeOpacity={0.8}>
         <LinearGradient
           colors={['#3B21FB', '#AEF1FF']}
-          start={{ x: 0, y: 0.5 }}
-          end={{ x: 1, y: 0.5 }}
-          style={styles.createGradient}
+          start={{ x: 0.3, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.createBtn}
         >
-          <Ionicons name="add" size={26} color={Colors.textPrimary} />
+          <Ionicons name="add" size={24} color="#fbfcfe" />
         </LinearGradient>
       </TouchableOpacity>
     </View>
@@ -66,18 +68,16 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
     paddingTop: 16,
-    backgroundColor: Colors.bgMain,
-    borderTopWidth: 1,
-    borderTopColor: Colors.surfaceBorder,
+    backgroundColor: '#101640',
   },
   circleBtn: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: Colors.surfaceBorder,
+    backgroundColor: '#2d3052',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -85,24 +85,29 @@ const styles = StyleSheet.create({
     width: 112,
     height: 56,
     borderRadius: 28,
-    backgroundColor: Colors.surfaceBorder,
+    backgroundColor: '#2d3052',
     flexDirection: 'row',
     alignItems: 'center',
+    position: 'relative',
     overflow: 'hidden',
+  },
+  pillIndicator: {
+    position: 'absolute',
+    top: 4,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#fbfcfe',
+    zIndex: 0,
   },
   pillHalf: {
     flex: 1,
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
   },
-  pillDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: Colors.textTertiary,
-    opacity: 0.4,
-  },
-  createGradient: {
+  createBtn: {
     width: 56,
     height: 56,
     borderRadius: 28,
