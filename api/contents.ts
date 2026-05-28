@@ -21,11 +21,11 @@ export async function createContent(
   return content
 }
 
-export async function getAllContents(): Promise<ContentWithTags[]> {
+export async function getAllContents(userId: string): Promise<ContentWithTags[]> {
   const { data, error } = await supabase
     .from('contents')
     .select('*, content_tags(tag_id, tags(*))')
-    //.eq('user_id', userId) 클로드가 추가하라 했는데 일단 주석으로
+    .eq('user_id', userId)
     .order('created_at', { ascending: false })
   if (error) throw error
   return data

@@ -12,7 +12,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
-import { getAllContents, deleteContent, updateContent } from '../api/contents'
+import { getContentById, deleteContent, updateContent } from '../api/contents'
 import { Colors } from '../constants/colors'
 import type { ScreenProps } from '../types/navigation'
 import type { ContentWithTags } from '../types/database'
@@ -30,9 +30,8 @@ export default function ContentDetailScreen({
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    getAllContents()
-      .then((all) => {
-        const found = all.find((c) => c.id === contentId) ?? null
+    getContentById(contentId)
+      .then((found) => {
         setContent(found)
         if (found) {
           setEditBody(found.body ?? '')

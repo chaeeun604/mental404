@@ -53,11 +53,12 @@ export default function ReportScreen({ navigation }: ScreenProps<'Report'>) {
   const [selectedPeriod, setSelectedPeriod] = useState<Period | null>(null)
 
   useEffect(() => {
-    getAllContents()
+    if (!session?.user?.id) return
+    getAllContents(session.user.id)
       .then(setContents)
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [session?.user?.id])
 
   const periods = generatePeriods(6)
 
@@ -176,7 +177,7 @@ export default function ReportScreen({ navigation }: ScreenProps<'Report'>) {
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Ionicons name="chevron-back" size={24} color={Colors.textSecondary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>우주 리포트</Text>
+          <Text style={styles.headerTitle}>분석 리포트</Text>
           <View style={{ width: 36 }} />
         </View>
 
@@ -248,8 +249,8 @@ const styles = StyleSheet.create({
   loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scrollContent: { padding: 20, gap: 14, paddingBottom: 40 },
   periodCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
+    backgroundColor: '#2d3052',
+    borderRadius: 15,
     padding: 20,
     borderWidth: 1,
     borderColor: Colors.surfaceBorder,

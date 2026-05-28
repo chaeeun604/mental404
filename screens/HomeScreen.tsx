@@ -16,6 +16,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useTags } from '../hooks/useTags'
 import { getAllContents } from '../api/contents'
 import PlanetGraphic from '../components/PlanetGraphic'
+import ContentBubble from '../components/ContentBubble'
 import GNB from '../components/GNB'
 import { Colors } from '../constants/colors'
 import type { ScreenProps } from '../types/navigation'
@@ -23,6 +24,16 @@ import type { ContentWithTags } from '../types/database'
 
 const { width } = Dimensions.get('window')
 const PLANET_SIZE = 220
+
+// Floating bubble positions relative to the planet container (360×340)
+// Arranged to surround the planet visually like the Figma design
+const BUBBLE_POSITIONS: Array<{ top?: number; bottom?: number; left?: number; right?: number }> = [
+  { top: 12,  left: 14 },
+  { top: 48,  right: 10 },
+  { top: 90,  left: 8 },
+  { top: 115, left: 72 },
+  { top: 220, left: 12 },
+]
 
 function truncate(text: string, max: number) {
   return text.length > max ? text.slice(0, max - 1) + '…' : text
@@ -40,12 +51,13 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
 
   const loadContents = useCallback(() => {
+    if (!userId) return
     setContentsLoading(true)
-    getAllContents()
+    getAllContents(userId)
       .then(setContents)
       .catch(() => {})
       .finally(() => setContentsLoading(false))
-  }, [])
+  }, [userId])
 
   useEffect(() => {
     loadContents()
@@ -89,47 +101,59 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     }
 
     const shownCards = tagContents.slice(0, 5)
+    const overflowCount = tagContents.length - 5
 
     return (
       <View style={styles.graphicArea}>
-        {/* Planet with content inside */}
-        <TouchableOpacity
-          activeOpacity={0.95}
-          onPress={() => {
-            if (tagContents.length > 0) {
-              navigation.navigate('ContentDetail', { contentId: tagContents[0].id })
-            }
-          }}
-        >
-          <PlanetGraphic tagIndex={currentTagIdx} size={PLANET_SIZE}>
-            <View style={styles.planetContent}>
-              {shownCards.length === 0 ? (
-                <Text style={styles.planetEmpty}>기록 없음</Text>
-              ) : (
-                shownCards.map((item) => (
-                  <Text key={item.id} style={styles.planetItem} numberOfLines={1}>
-                    {item.type === 'text' && item.body
-                      ? truncate(item.body, 14)
-                      : '📷'}
-                  </Text>
-                ))
-              )}
-            </View>
-          </PlanetGraphic>
-        </TouchableOpacity>
+        {/* Planet container — planet centered, bubbles float around it */}
+        <View style={styles.planetContainer}>
+          {/* Centered planet */}
+          <View style={styles.planetCenter}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => {
+                if (tagContents.length > 0) {
+                  navigation.navigate('ContentDetail', { contentId: tagContents[0].id })
+                }
+              }}
+            >
+              <PlanetGraphic tagIndex={currentTagIdx} size={PLANET_SIZE} />
+            </TouchableOpacity>
+          </View>
 
-        {/* Count badge */}
-        {tagContents.length > 5 && (
-          <TouchableOpacity
-            style={styles.moreBadge}
-            onPress={() => {
-              setSelectedTagId(currentTag?.id ?? null)
-              setActiveTab('list')
-            }}
-          >
-            <Text style={styles.moreBadgeText}>+{tagContents.length - 5}개 더 보기</Text>
-          </TouchableOpacity>
-        )}
+          {/* Floating content bubbles */}
+          {shownCards.map((item, idx) => (
+            <TouchableOpacity
+              key={item.id}
+              style={[styles.bubble, BUBBLE_POSITIONS[idx]]}
+              onPress={() => navigation.navigate('ContentDetail', { contentId: item.id })}
+              activeOpacity={0.8}
+            >
+              <ContentBubble item={item} />
+            </TouchableOpacity>
+          ))}
+
+          {/* Overflow badge */}
+          {overflowCount > 0 && (
+            <TouchableOpacity
+              style={styles.overflowBadge}
+              onPress={() => {
+                setSelectedTagId(currentTag?.id ?? null)
+                setActiveTab('list')
+              }}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={['#3B21FB', '#AEF1FF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.overflowGradient}
+              >
+                <Text style={styles.overflowText}>+{overflowCount}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Arrow navigation */}
         <View style={styles.arrowRow}>
@@ -314,34 +338,36 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     gap: 20,
   },
-  planetContent: {
-    flex: 1,
-    justifyContent: 'center',
+  planetContainer: {
+    width: 360,
+    height: 320,
+    position: 'relative',
+  },
+  planetCenter: {
+    position: 'absolute',
+    top: (320 - PLANET_SIZE) / 2,
+    left: (360 - PLANET_SIZE) / 2,
+  },
+  bubble: {
+    position: 'absolute',
+  },
+  overflowBadge: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+  },
+  overflowGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    gap: 8,
+    justifyContent: 'center',
   },
-  planetItem: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.9)',
-    fontWeight: '500',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+  overflowText: {
+    fontSize: 14,
+    color: '#fbfcfe',
+    fontFamily: 'Pretendard-SemiBold',
   },
-  planetEmpty: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
-    fontStyle: 'italic',
-  },
-  moreBadge: {
-    backgroundColor: Colors.primary,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  moreBadgeText: { fontSize: 12, color: Colors.textPrimary, fontWeight: '600' },
   arrowRow: {
     flexDirection: 'row',
     alignItems: 'center',

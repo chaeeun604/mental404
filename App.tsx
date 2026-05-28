@@ -15,6 +15,15 @@ import MyPageScreen from './screens/MyPageScreen'
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
 
+// Pretendard 폰트는 assets/fonts/ 에 TTF 파일 추가 후 아래 주석 해제:
+// import { useFonts } from 'expo-font'
+// const [fontsLoaded] = useFonts({
+//   'Pretendard-Regular': require('./assets/fonts/Pretendard-Regular.ttf'),
+//   'Pretendard-Medium': require('./assets/fonts/Pretendard-Medium.ttf'),
+//   'Pretendard-SemiBold': require('./assets/fonts/Pretendard-SemiBold.ttf'),
+//   'Pretendard-Bold': require('./assets/fonts/Pretendard-Bold.ttf'),
+// })
+
 export default function App() {
   return (
     <SafeAreaProvider>
