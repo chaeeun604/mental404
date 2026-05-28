@@ -130,89 +130,100 @@ export async function uploadImage(user_id: string, uri: string): Promise<string>
   return supabase.storage.from('contents').getPublicUrl(path).data.publicUrl
 }
 
-// 가중치 기반 추천 방식 관련 함수. 사용자 맞춤 추천 기능 (자주 안열어 본 것 우선으로 추천.)
-//getDailyRecommendation 를 고도화 시키는 방식으로 변경. 
-function getViewCountWeight(viewCount: number): number {
-  if (viewCount === 0) return 5
-  if (viewCount === 1) return 3
-  if (viewCount === 2) return 2
-  return 1  // 3회 이상
-} //가중치 알고리즘 추가 함수
+// 가중치 기반 추천
+// 규칙: 덜 열어본 것 우선 + 오래된 것 우선 + 모든 콘텐츠 추천 가능 (확률 차이만 있음)
+function calcWeight(viewCount: number, createdAt: string): number {
+  const daysOld = Math.max(0, (Date.now() - new Date(createdAt).getTime()) / 86400000)
+
+  // 열람 횟수 기반 기본 가중치 (덜 본 것이 높음)
+  const viewWeight = Math.max(1, 10 - viewCount * 2.5)
+
+  // 오래된 콘텐츠 보너스 (7일 당 +1, 최대 +4)
+  const ageBonus = Math.min(4, daysOld / 7)
+
+  // 최근 저장 페널티 (2일 이내 50% 감소)
+  const recencyPenalty = daysOld < 2 ? 0.5 : 1.0
+
+  return (viewWeight + ageBonus) * recencyPenalty
+}
 
 function weightedRandom<T>(items: { item: T; weight: number }[]): T | null {
   const total = items.reduce((sum, i) => sum + i.weight, 0)
   if (total === 0) return null
- 
   let rand = Math.random() * total
   for (const { item, weight } of items) {
     rand -= weight
     if (rand <= 0) return item
   }
   return items[items.length - 1].item
-} //가중치 알고리즘 추가 함수
+}
 
 export async function getDailyRecommendation(userId: string): Promise<ContentWithTags | null> {
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
- 
-  const twoDaysAgo = new Date()
-  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
- 
-  // 오늘 아직 추천 안 된 콘텐츠 전체 가져오기
+
+  // 전체 콘텐츠 가져오기 (오늘 이미 추천된 것 제외 - 폴백 있음)
   let { data, error } = await supabase
     .from('contents')
     .select('*, content_tags(tag_id, tags(*))')
     .eq('user_id', userId)
     .or(`shown_at.is.null,shown_at.lt.${todayStart.toISOString()}`)
   if (error) throw error
- 
-  // 폴백: 모든 콘텐츠가 오늘 이미 추천된 경우 전체 대상으로
+
+  // 오늘 추천 소진 시 전체 풀에서 재추천
   if (!data || data.length === 0) {
-    const { data: fallback, error: fallbackError } = await supabase
+    const { data: all, error: e2 } = await supabase
       .from('contents')
       .select('*, content_tags(tag_id, tags(*))')
       .eq('user_id', userId)
-    if (fallbackError) throw fallbackError
-    if (!fallback || fallback.length === 0) return null
-    data = fallback
+    if (e2) throw e2
+    if (!all || all.length === 0) return null
+    data = all
   }
- 
-  // 각 콘텐츠의 열람 횟수 조회
-  const contentIds = data.map((c) => c.id)
-  const { data: viewData, error: viewError } = await supabase
+
+  // 열람 횟수 조회
+  const ids = data.map(c => c.id)
+  const { data: viewData } = await supabase
     .from('view_logs')
     .select('content_id')
-    .in('content_id', contentIds)
+    .in('content_id', ids)
     .eq('user_id', userId)
-  if (viewError) throw viewError
- 
-  // content_id별 열람 횟수 집계
+
   const viewCountMap: Record<string, number> = {}
   for (const log of viewData ?? []) {
     const id = log.content_id as string
     viewCountMap[id] = (viewCountMap[id] ?? 0) + 1
   }
- 
-  // 각 콘텐츠에 가중치 계산
-  const weighted = data.map((content) => {
-    const viewCount = viewCountMap[content.id] ?? 0
-    let weight = getViewCountWeight(viewCount)
- 
-    // 2일 이내 저장한 콘텐츠는 가중치 절반
-    const isRecentlyCreated = new Date(content.created_at) > twoDaysAgo
-    if (isRecentlyCreated) weight *= 0.5
- 
-    return { item: content, weight }
-  })
- 
+
+  // 가중치 계산
+  const weighted = data.map(content => ({
+    item: content,
+    weight: calcWeight(viewCountMap[content.id] ?? 0, content.created_at),
+  }))
+
   const picked = weightedRandom(weighted)
   if (!picked) return null
- 
-  // 추천된 콘텐츠의 shown_at 업데이트
+
   await supabase
     .from('contents')
     .update({ shown_at: new Date().toISOString() })
     .eq('id', picked.id)
- 
+
   return picked
+}
+
+// 특정 기간 내 view_logs 열람 횟수 (리포트 "스스로 위로한 횟수")
+export async function getViewCountForPeriod(
+  userId: string,
+  start: Date,
+  end: Date
+): Promise<number> {
+  const { data, error } = await supabase
+    .from('view_logs')
+    .select('id', { count: 'exact' })
+    .eq('user_id', userId)
+    .gte('viewed_at', start.toISOString())
+    .lte('viewed_at', end.toISOString())
+  if (error) throw error
+  return (data as any)?.length ?? 0
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useFocusEffect } from '@react-navigation/native'
 import {
   View,
   Text,
@@ -44,14 +45,14 @@ async function markTutorialSeen(): Promise<void> {
 const { width } = Dimensions.get('window')
 const PLANET_SIZE = 220
 
-// Floating bubble positions relative to the planet container (360×340)
-// Arranged to surround the planet visually like the Figma design
+// Bubble positions around the planet — matched to Figma layout
+// Planet (220px) centered in container (360×320), planet center = (180, 160)
 const BUBBLE_POSITIONS: Array<{ top?: number; bottom?: number; left?: number; right?: number }> = [
-  { top: 12,  left: 14 },
-  { top: 48,  right: 10 },
-  { top: 90,  left: 8 },
-  { top: 115, left: 72 },
-  { top: 220, left: 12 },
+  { top: 16,  left: 14  }, // 상단 왼쪽
+  { top: 52,  right: 8  }, // 상단 오른쪽
+  { top: 82,  left: 4   }, // 중단 왼쪽 (이미지)
+  { top: 112, left: 72  }, // 중앙 아래
+  { top: 220, left: 14  }, // 하단 왼쪽
 ]
 
 function truncate(text: string, max: number) {
@@ -79,10 +80,12 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
       .finally(() => setContentsLoading(false))
   }, [userId])
 
-  // Fix: include loadContents in deps so it reruns when userId becomes available
-  useEffect(() => {
-    loadContents()
-  }, [loadContents])
+  // 화면 포커스 시 항상 리로드 (삭제 후 복귀 등)
+  useFocusEffect(
+    useCallback(() => {
+      loadContents()
+    }, [loadContents])
+  )
 
   // Show tutorial on first home visit
   useEffect(() => {
@@ -126,8 +129,10 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
       )
     }
 
-    const shownCards = tagContents.slice(0, 5)
-    const overflowCount = tagContents.length - 5
+    const MAX_SHOWN = 5
+    const shownCards = tagContents.slice(0, MAX_SHOWN)
+    const totalCount = tagContents.length
+    const hasOverflow = totalCount > MAX_SHOWN
 
     return (
       <View style={styles.graphicArea}>
@@ -159,8 +164,8 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
             </TouchableOpacity>
           ))}
 
-          {/* Overflow badge */}
-          {overflowCount > 0 && (
+          {/* Overflow badge — 총 개수 표시 */}
+          {hasOverflow && (
             <TouchableOpacity
               style={styles.overflowBadge}
               onPress={() => {
@@ -171,11 +176,10 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
             >
               <LinearGradient
                 colors={['#3B21FB', '#AEF1FF']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                 style={styles.overflowGradient}
               >
-                <Text style={styles.overflowText}>+{overflowCount}</Text>
+                <Text style={styles.overflowText}>+{totalCount}</Text>
               </LinearGradient>
             </TouchableOpacity>
           )}
