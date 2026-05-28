@@ -15,9 +15,10 @@ export function useTags(userId: string) {
  
   useEffect(() => { if (userId) load() }, [userId])
 
-  const addCustomTag = async (name: string, emoji: string) => {
+  const addCustomTag = async (name: string, emoji: string): Promise<TagRow> => {
     const newTag = await createCustomTag(userId, name, emoji)
     setTags((prev) => [...prev, newTag])
+    return newTag
   }
 
   const removeCustomTag = async (tagId: string) => {

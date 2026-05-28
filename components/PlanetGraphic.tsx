@@ -21,17 +21,17 @@ const PLANET_DEFS = [
     glow: '#40D870',
     tl: 0.82, tr: 0.44, br: 0.65, bl: 0.80,
   },
-  // 3: 기대고 싶을 때 — 보라 행성
+  // 3: 웃고 싶을 때 — 핑크/마젠타 행성 (Figma home4 기준)
   {
-    colors: ['#7C3DC8', '#280A6E'] as [string, string],
-    glow: '#9B5CFF',
-    tl: 0.65, tr: 0.65, br: 0.75, bl: 0.55,
+    colors: ['#D458C0', '#7A1060'] as [string, string],
+    glow: '#E880D8',
+    tl: 0.70, tr: 0.58, br: 0.68, bl: 0.72,
   },
-  // 4: 웃고 싶을 때 — 따뜻한 금빛 행성
+  // 4: 기대고 싶을 때 — 브라운/어스 행성 (Figma home5 기준)
   {
-    colors: ['#D4820E', '#5A2E00'] as [string, string],
-    glow: '#F0A830',
-    tl: 0.55, tr: 0.78, br: 0.65, bl: 0.60,
+    colors: ['#C06020', '#561800'] as [string, string],
+    glow: '#E07840',
+    tl: 0.58, tr: 0.72, br: 0.50, bl: 0.78,
   },
 ]
 

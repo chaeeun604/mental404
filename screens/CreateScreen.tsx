@@ -18,10 +18,12 @@ type Step = 1 | 2 | 3 | 4
 type ContentType = 'text' | 'image'
 
 const TOTAL_STEPS = 3
+const MAX_CUSTOM_TAGS = 5
+const MAX_TAG_CHARS = 20
 
 export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
   const { session } = useAuth()
-  const { tags } = useTags(session?.user?.id ?? '')
+  const { tags, addCustomTag } = useTags(session?.user?.id ?? '')
   const [step, setStep]             = useState<Step>(1)
   const [contentType, setContentType] = useState<ContentType>('text')
   const [body, setBody]             = useState('')
@@ -30,6 +32,27 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
   const [saving, setSaving]         = useState(false)
   const [savedContent, setSavedContent] = useState<ContentRow | null>(null)
+  const [newTagInput, setNewTagInput] = useState('')
+  const [addingTag, setAddingTag]     = useState(false)
+
+  const customTags = tags.filter(t => !t.is_default)
+  const remainingCustom = MAX_CUSTOM_TAGS - customTags.length
+  const isCharOverflow = newTagInput.length > MAX_TAG_CHARS
+  const canAddTag = newTagInput.trim().length > 0 && !isCharOverflow && remainingCustom > 0
+
+  const handleAddCustomTag = async () => {
+    if (!canAddTag || addingTag) return
+    setAddingTag(true)
+    try {
+      const newTag = await addCustomTag(newTagInput.trim(), '✦')
+      setSelectedTagIds(prev => [...prev, newTag.id])
+      setNewTagInput('')
+    } catch (e: any) {
+      Alert.alert('오류', e.message)
+    } finally {
+      setAddingTag(false)
+    }
+  }
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -78,10 +101,10 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
       else navigation.replace('Home')
       return
     }
-    Alert.alert('기록을 그만할까요?', '지금까지 작성한 내용이 삭제돼요.', [
+    Alert.alert('변경사항 폐기', '작성 중인 내용이 모두 사라져요.\n그래도 나가시겠어요?', [
       { text: '계속 작성', style: 'cancel' },
       {
-        text: '그만하기', style: 'destructive',
+        text: '폐기', style: 'destructive',
         onPress: () => {
           if (navigation.canGoBack()) navigation.goBack()
           else navigation.replace('Home')
@@ -303,11 +326,12 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
             </View>
           )}
 
-          {/* ── 스텝 3: 태그 선택 ── */}
+          {/* ── 스텝 3: 태그 선택 + 커스텀 태그 추가 ── */}
           {step === 3 && (
             <View style={styles.stepWrap}>
               <Text style={styles.stepTitle}>별을 언제 꺼내볼까요?</Text>
-              <Text style={styles.stepDesc}>꺼내보고 싶은 상황 태그를 골라보세요</Text>
+
+              {/* 태그 칩 목록 (기본 + 커스텀) */}
               <View style={styles.chipGrid}>
                 {tags.map(tag => {
                   const active = selectedTagIds.includes(tag.id)
@@ -323,6 +347,47 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
                     </TouchableOpacity>
                   )
                 })}
+              </View>
+
+              {/* 커스텀 태그 추가 입력 */}
+              <View>
+                <View style={[styles.tagInputRow, isCharOverflow && styles.tagInputRowError]}>
+                  <TextInput
+                    style={styles.tagInput}
+                    placeholder={
+                      remainingCustom > 0
+                        ? `새 태그를 ${remainingCustom}개 더 추가할 수 있어요.`
+                        : '태그를 최대 5개까지 추가할 수 있어요.'
+                    }
+                    placeholderTextColor={Colors.textTertiary}
+                    value={newTagInput}
+                    onChangeText={setNewTagInput}
+                    maxLength={MAX_TAG_CHARS + 5}
+                    editable={remainingCustom > 0}
+                    returnKeyType="done"
+                    onSubmitEditing={handleAddCustomTag}
+                  />
+                  <TouchableOpacity
+                    style={[styles.tagAddBtn, !canAddTag && styles.tagAddBtnDisabled]}
+                    onPress={handleAddCustomTag}
+                    disabled={!canAddTag || addingTag}
+                    activeOpacity={0.8}
+                  >
+                    {addingTag
+                      ? <ActivityIndicator size="small" color="#fbfcfe" />
+                      : <Ionicons name="add" size={20} color={canAddTag ? '#fbfcfe' : Colors.textTertiary} />
+                    }
+                  </TouchableOpacity>
+                </View>
+
+                {/* 글자수 / 오버플로 피드백 */}
+                <View style={styles.tagInputMeta}>
+                  {isCharOverflow ? (
+                    <Text style={styles.charOverflow}>글자수를 초과했어요 ({newTagInput.length}/{MAX_TAG_CHARS})</Text>
+                  ) : newTagInput.length > 0 ? (
+                    <Text style={styles.charCount}>{newTagInput.length} / {MAX_TAG_CHARS}</Text>
+                  ) : null}
+                </View>
               </View>
             </View>
           )}
@@ -508,6 +573,55 @@ const styles = StyleSheet.create({
     minHeight: 80,
     lineHeight: 22,
     textAlignVertical: 'top',
+  },
+
+  // 태그 입력
+  tagInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(39,41,54,0.8)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    paddingLeft: 16,
+    paddingRight: 8,
+    height: 54,
+    gap: 8,
+  },
+  tagInputRowError: {
+    borderColor: '#FF6060',
+  },
+  tagInput: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: 'Pretendard-Regular',
+    color: Colors.textPrimary,
+  },
+  tagAddBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tagAddBtnDisabled: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  tagInputMeta: {
+    marginTop: 6,
+    paddingHorizontal: 4,
+    minHeight: 18,
+  },
+  charCount: {
+    fontSize: 12,
+    color: Colors.textTertiary,
+    fontFamily: 'Pretendard-Regular',
+  },
+  charOverflow: {
+    fontSize: 12,
+    color: '#FF6060',
+    fontFamily: 'Pretendard-Regular',
   },
 
   // 태그 칩
