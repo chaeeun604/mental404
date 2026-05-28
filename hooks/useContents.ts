@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ContentWithTags } from '../types/database'
 import { getContentsByTag, getDailyRecommendation } from '../api/contents'
 
-export function useContents() {
+export function useContents(userId: string) {
   const [contents, setContents] = useState<ContentWithTags[]>([])
   const [recommendation, setRecommendation] = useState<ContentWithTags | null>(null)
   const [loading, setLoading] = useState(false)
@@ -16,7 +16,7 @@ export function useContents() {
 
   const loadRecommendation = async () => {
     setLoading(true)
-    const data = await getDailyRecommendation()
+    const data = await getDailyRecommendation(userId)
     setRecommendation(data)
     setLoading(false)
   }

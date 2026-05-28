@@ -7,9 +7,9 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then((response) => {
-        setSession(response.data.session)
-        setLoading(false)
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+      setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -17,7 +17,6 @@ export function useAuth() {
         setSession(session)
       }
     )
-
     return () => subscription.unsubscribe()
   }, [])
 
@@ -27,8 +26,9 @@ export function useAuth() {
   }
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
+    return data.user
   }
 
   const signOut = async () => {

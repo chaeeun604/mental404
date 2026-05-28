@@ -1,0 +1,26 @@
+{
+  "cli": {
+    "version": ">= 16.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development"
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview"
+    },
+    "production": {
+      "channel": "production",
+      "autoIncrement": true
+    }
+  },
+  "update": {
+    "url": "https://u.expo.dev/f7e23cb1-2cff-431a-9a62-b143f0b417cf"
+  },
+  "submit": {
+    "production": {}
+  }
+}

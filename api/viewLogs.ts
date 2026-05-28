@@ -21,6 +21,7 @@ export async function getViewStats(userId: string, days: number = 14) {
   return data
 }
 
+//최근 N일 동안 어떤 태그 콘텐츠를 몇 번 열어봤는지 많이 본 순으로 반환 
 export async function getMostViewedTags(userId: string, days: number = 14) {
   const since = new Date()
   since.setDate(since.getDate() - days)
