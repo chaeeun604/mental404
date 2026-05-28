@@ -1,264 +1,404 @@
+import { useState, useEffect, useCallback } from 'react'
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Image, Dimensions,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  ScrollView,
+  ActivityIndicator,
+  Image,
 } from 'react-native'
-import { useEffect, useState } from 'react'
-import { TagRow, ContentWithTags } from '../types/database'
+import { LinearGradient } from 'expo-linear-gradient'
+import { Ionicons } from '@expo/vector-icons'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { useAuth } from '../hooks/useAuth'
 import { useTags } from '../hooks/useTags'
-import { useContents } from '../hooks/useContents'
-import { getContentsByTag } from '../api/contents'
-import { scheduleSmartNotification } from '../api/notification'
+import { getAllContents } from '../api/contents'
+import PlanetGraphic from '../components/PlanetGraphic'
+import GNB from '../components/GNB'
+import { Colors } from '../constants/colors'
+import type { ScreenProps } from '../types/navigation'
+import type { ContentWithTags } from '../types/database'
 
-const { width: SW } = Dimensions.get('window')
-const BLOB_W = Math.min(SW * 0.62, 248)
+const { width } = Dimensions.get('window')
+const PLANET_SIZE = 220
 
-// 태그별 블롭 색상 (순환)
-const BLOB_COLORS = ['#5b4ff0', '#7c3aed', '#be185d', '#0369a1', '#047857', '#b45309', '#6d28d9']
-
-// 블롭 내부 플로팅 카드 위치 (blob 기준 absolute, 5개 슬롯)
-const FLOAT_POS = [
-  { top: 14,    left:  8 },
-  { top: 14,    right: 8 },
-  { top: 90,    left:  6 },
-  { bottom: 14, left:  8 },
-  { bottom: 14, right: 8 },
-] as const
-
-const C = {
-  bg: '#0d0d1e', primary: '#7b6ef6',
-  text: '#ffffff', textSec: '#8888bb', border: '#252540',
-  card: 'rgba(255,255,255,0.18)', banner: 'rgba(123,110,246,0.28)',
+function truncate(text: string, max: number) {
+  return text.length > max ? text.slice(0, max - 1) + '…' : text
 }
 
-export default function HomeScreen({ navigation, route }: any) {
-  // ── 로직 영역 ──────────────────────────────────────────────
-  const { userId, email } = route.params
-  const username = (email as string)?.split('@')[0] ?? '사용자'
-
+export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
+  const { session } = useAuth()
+  const userId = session?.user?.id ?? ''
+  const username = session?.user?.email?.split('@')[0] ?? '별님'
   const { tags, loading: tagsLoading } = useTags(userId)
-  const { recommendation, loadRecommendation } = useContents(userId)
+  const [contents, setContents] = useState<ContentWithTags[]>([])
+  const [contentsLoading, setContentsLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'report' | 'graphic' | 'list'>('graphic')
+  const [currentTagIdx, setCurrentTagIdx] = useState(0)
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
 
-  const [tagIndex, setTagIndex] = useState(0)
-  const [tagContents, setTagContents] = useState<ContentWithTags[]>([])
-  const [contentsLoading, setContentsLoading] = useState(false)
-
-  useEffect(() => {
-    loadRecommendation()
-    scheduleSmartNotification(userId).catch(console.error)
+  const loadContents = useCallback(() => {
+    setContentsLoading(true)
+    getAllContents()
+      .then(setContents)
+      .catch(() => {})
+      .finally(() => setContentsLoading(false))
   }, [])
 
   useEffect(() => {
-    const tag: TagRow | undefined = tags[tagIndex]
-    if (!tag) return
-    setContentsLoading(true)
-    getContentsByTag(tag.id)
-      .then(data => setTagContents(data))
-      .catch(console.error)
-      .finally(() => setContentsLoading(false))
-  }, [tagIndex, tags])
+    loadContents()
+  }, [])
 
-  const currentTag = tags[tagIndex]
-  const blobColor  = BLOB_COLORS[tagIndex % BLOB_COLORS.length]
+  const currentTag = tags[currentTagIdx] ?? null
 
-  // 5개 초과 시: 앞 4개 카드 + +N 버튼
-  const showExtra      = tagContents.length > 5
-  const displayCards   = showExtra ? tagContents.slice(0, 4) : tagContents.slice(0, 5)
-  const extraCount     = showExtra ? tagContents.length - 4 : 0
-  // ──────────────────────────────────────────────────────────
+  const tagContents = currentTag
+    ? contents.filter((c) => c.content_tags?.some((ct) => ct.tag_id === currentTag.id))
+    : []
+
+  const listContents = selectedTagId
+    ? contents.filter((c) => c.content_tags?.some((ct) => ct.tag_id === selectedTagId))
+    : contents
+
+  const goLeft = () => {
+    if (tags.length === 0) return
+    setCurrentTagIdx((prev) => (prev - 1 + tags.length) % tags.length)
+  }
+
+  const goRight = () => {
+    if (tags.length === 0) return
+    setCurrentTagIdx((prev) => (prev + 1) % tags.length)
+  }
+
+  const renderGraphicView = () => {
+    if (tagsLoading || contentsLoading) {
+      return (
+        <View style={styles.loadingCenter}>
+          <ActivityIndicator color={Colors.primary} />
+        </View>
+      )
+    }
+
+    if (tags.length === 0) {
+      return (
+        <View style={styles.emptyCenter}>
+          <Text style={styles.emptyText}>+ 버튼으로 첫 번째{'\n'}별을 기록해보세요.</Text>
+        </View>
+      )
+    }
+
+    const shownCards = tagContents.slice(0, 5)
+
+    return (
+      <View style={styles.graphicArea}>
+        {/* Planet with content inside */}
+        <TouchableOpacity
+          activeOpacity={0.95}
+          onPress={() => {
+            if (tagContents.length > 0) {
+              navigation.navigate('ContentDetail', { contentId: tagContents[0].id })
+            }
+          }}
+        >
+          <PlanetGraphic tagIndex={currentTagIdx} size={PLANET_SIZE}>
+            <View style={styles.planetContent}>
+              {shownCards.length === 0 ? (
+                <Text style={styles.planetEmpty}>기록 없음</Text>
+              ) : (
+                shownCards.map((item) => (
+                  <Text key={item.id} style={styles.planetItem} numberOfLines={1}>
+                    {item.type === 'text' && item.body
+                      ? truncate(item.body, 14)
+                      : '📷'}
+                  </Text>
+                ))
+              )}
+            </View>
+          </PlanetGraphic>
+        </TouchableOpacity>
+
+        {/* Count badge */}
+        {tagContents.length > 5 && (
+          <TouchableOpacity
+            style={styles.moreBadge}
+            onPress={() => {
+              setSelectedTagId(currentTag?.id ?? null)
+              setActiveTab('list')
+            }}
+          >
+            <Text style={styles.moreBadgeText}>+{tagContents.length - 5}개 더 보기</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Arrow navigation */}
+        <View style={styles.arrowRow}>
+          <TouchableOpacity style={styles.arrowBtn} onPress={goLeft}>
+            <Ionicons name="chevron-back" size={22} color={Colors.textSecondary} />
+          </TouchableOpacity>
+          <Text style={styles.arrowLabel}>{currentTag?.name ?? ''}</Text>
+          <TouchableOpacity style={styles.arrowBtn} onPress={goRight}>
+            <Ionicons name="chevron-forward" size={22} color={Colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    )
+  }
+
+  const renderListView = () => (
+    <View style={styles.flex}>
+      {/* Tag filter chips — no "전체" chip */}
+      <View style={styles.listHeader}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tagChipsRow}
+        >
+          {tags.map((tag) => {
+            const isActive = selectedTagId === tag.id
+            return (
+              <TouchableOpacity
+                key={tag.id}
+                style={[styles.tagChip, isActive && styles.tagChipActive]}
+                onPress={() => setSelectedTagId(isActive ? null : tag.id)}
+              >
+                <Text style={[styles.tagChipText, isActive && styles.tagChipTextActive]}>
+                  {tag.name}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
+        </ScrollView>
+        <Text style={styles.totalCount}>전체 {listContents.length}</Text>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {contentsLoading ? (
+          <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
+        ) : listContents.length === 0 ? (
+          <Text style={styles.emptyText}>아직 기록이 없어요.</Text>
+        ) : (
+          listContents.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.listCard}
+              onPress={() => navigation.navigate('ContentDetail', { contentId: item.id })}
+              activeOpacity={0.8}
+            >
+              {item.type === 'image' && item.image_url ? (
+                <Image source={{ uri: item.image_url }} style={styles.listThumbnail} />
+              ) : null}
+              <View style={styles.listCardText}>
+                <Text style={styles.listBody} numberOfLines={2}>
+                  {item.type === 'text' && item.body
+                    ? truncate(item.body, 64)
+                    : '이미지'}
+                </Text>
+                <View style={styles.listDateRow}>
+                  <Ionicons name="time-outline" size={14} color={Colors.textTertiary} />
+                  <Text style={styles.listDate}>
+                    {new Date(item.created_at).toLocaleDateString('ko-KR', {
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
+      </ScrollView>
+    </View>
+  )
 
   return (
-    <View style={s.container}>
-      {/* 헤더 */}
-      <View style={s.header}>
-        <Text style={s.username}>{username}님의 우주</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('MyPage', { userId, email })}>
-          <Text style={s.myPageIcon}>👤</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* 별똥별 배너 */}
-      {recommendation ? (
-        <TouchableOpacity
-          style={s.banner}
-          onPress={() => navigation.navigate('ShootingStar', { contentId: recommendation.id, userId })}
-        >
-          <Text style={s.bannerText}>＋ 오늘의 별똥별이 도착하였어요.</Text>
-          <Text style={s.bannerArrow}>›</Text>
-        </TouchableOpacity>
-      ) : (
-        <View style={s.bannerEmpty} />
-      )}
-
-      {/* 블롭 + 플로팅 카드 */}
-      {tagsLoading ? (
-        <View style={s.blobArea}>
-          <ActivityIndicator color={C.primary} />
-        </View>
-      ) : (
-        <View style={s.blobArea}>
-          {/* 블롭 — 카드들의 부모 컨테이너 */}
-          <View style={[s.blob, { backgroundColor: blobColor, width: BLOB_W, height: BLOB_W }]}>
-            {contentsLoading ? (
-              <ActivityIndicator color="rgba(255,255,255,0.5)" />
-            ) : (
-              <>
-                {displayCards.map((item, i) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[s.floatCard, FLOAT_POS[i] as any]}
-                    onPress={() => navigation.navigate('ContentDetail', { contentId: item.id, userId })}
-                    activeOpacity={0.8}
-                  >
-                    {item.type === 'image' && item.image_url ? (
-                      <Image source={{ uri: item.image_url }} style={s.floatImg} />
-                    ) : (
-                      <Text style={s.floatText} numberOfLines={3}>{item.body}</Text>
-                    )}
-                  </TouchableOpacity>
-                ))}
-
-                {/* +N 버튼 */}
-                {extraCount > 0 && (
-                  <TouchableOpacity
-                    style={[s.floatCard, s.floatCardExtra, FLOAT_POS[4] as any]}
-                    onPress={() => navigation.navigate('Browse', {
-                      userId, email,
-                      tagId: currentTag?.id,
-                      tagName: currentTag?.name,
-                      recommendationId: recommendation?.id,
-                    })}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={s.floatExtraText}>+{extraCount}개</Text>
-                  </TouchableOpacity>
-                )}
-              </>
-            )}
-
-            {/* 기록 없을 때 */}
-            {!contentsLoading && tagContents.length === 0 && (
-              <Text style={s.blobEmpty}>별을 담아봐요 ✦</Text>
-            )}
+    <View style={styles.flex}>
+      <LinearGradient colors={Colors.bgHomeGradient} style={styles.flex}>
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
+          {/* Header — title centered, profile icon right */}
+          <View style={styles.header}>
+            <View style={{ width: 36 }} />
+            <Text style={styles.headerTitle}>{username}님의 우주</Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('MyPage')}
+              style={styles.profileBtn}
+            >
+              <Ionicons name="person-circle-outline" size={32} color={Colors.textSecondary} />
+            </TouchableOpacity>
           </View>
-        </View>
-      )}
 
-      {/* 태그 네비게이션 */}
-      <View style={s.tagNav}>
-        <TouchableOpacity
-          onPress={() => setTagIndex(i => Math.max(0, i - 1))}
-          disabled={tagIndex === 0}
-          style={s.tagNavBtn}
-        >
-          <Text style={[s.tagNavArrow, tagIndex === 0 && s.tagNavArrowDim]}>‹</Text>
-        </TouchableOpacity>
-        <Text style={s.tagNavLabel}>{currentTag?.name ?? ''}</Text>
-        <TouchableOpacity
-          onPress={() => setTagIndex(i => Math.min(tags.length - 1, i + 1))}
-          disabled={tagIndex >= tags.length - 1}
-          style={s.tagNavBtn}
-        >
-          <Text style={[s.tagNavArrow, tagIndex >= tags.length - 1 && s.tagNavArrowDim]}>›</Text>
-        </TouchableOpacity>
-      </View>
+          {/* Daily star banner */}
+          <TouchableOpacity
+            style={styles.banner}
+            onPress={() => navigation.navigate('ShootingStar')}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={['#3B21FB', '#AEF1FF']}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={styles.bannerGradient}
+            >
+              <Text style={styles.bannerText}>✦ 오늘의 별똥별이 도착했어요.</Text>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textPrimary} />
+            </LinearGradient>
+          </TouchableOpacity>
 
-      {/* 하단 네비게이션 */}
-      <View style={s.bottomNav}>
-        <TouchableOpacity style={s.navItem} onPress={() => navigation.navigate('Report', { userId, email })}>
-          <Text style={s.navIcon}>⟁</Text>
-          <Text style={s.navLabel}>리포트</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={s.navItem}>
-          <Text style={[s.navIcon, s.navActive]}>◎</Text>
-          <Text style={[s.navLabel, s.navLabelActive]}>홈</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={s.navItem} onPress={() => navigation.navigate('Browse', { userId, email, recommendationId: recommendation?.id })}>
-          <Text style={s.navIcon}>≡</Text>
-          <Text style={s.navLabel}>우주</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={s.createBtn}
-          onPress={() => navigation.navigate('Create', { userId, email })}
-        >
-          <Text style={s.createBtnText}>＋</Text>
-        </TouchableOpacity>
-      </View>
+          {/* Content area */}
+          <View style={styles.flex}>
+            {activeTab === 'graphic' ? renderGraphicView() : renderListView()}
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+
+      <GNB
+        activeTab={activeTab === 'report' ? 'report' : activeTab}
+        onReport={() => navigation.navigate('Report')}
+        onGraphic={() => setActiveTab('graphic')}
+        onList={() => setActiveTab('list')}
+        onCreate={() => navigation.navigate('Create')}
+      />
     </View>
   )
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  safeArea: { flex: 1 },
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 22, paddingTop: 54, paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    height: 60,
   },
-  username: { color: C.text, fontSize: 18, fontWeight: '700' },
-  myPageIcon: { fontSize: 20, opacity: 0.7 },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    textAlign: 'center',
+    flex: 1,
+  },
+  profileBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   banner: {
-    marginHorizontal: 20, borderRadius: 14, paddingHorizontal: 18, paddingVertical: 13,
-    backgroundColor: C.banner, borderWidth: 1, borderColor: C.primary,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 4,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderRadius: 11,
+    overflow: 'hidden',
   },
-  bannerText: { color: C.text, fontSize: 13 },
-  bannerArrow: { color: C.textSec, fontSize: 18 },
-  bannerEmpty: { height: 16 },
-  // 블롭 영역
-  blobArea: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-  },
-  blob: {
+  bannerGradient: {
+    height: 56,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderTopLeftRadius: 110,
-    borderTopRightRadius: 130,
-    borderBottomLeftRadius: 130,
-    borderBottomRightRadius: 110,
-    opacity: 0.85,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
   },
-  floatCard: {
-    position: 'absolute',
-    backgroundColor: C.card,
-    borderRadius: 14,
-    padding: 10,
-    maxWidth: 130,
-  },
-  floatText: { color: C.text, fontSize: 11, lineHeight: 16 },
-  floatImg: { width: 80, height: 64, borderRadius: 8, resizeMode: 'cover' },
-  floatCardExtra: {
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  floatExtraText: { color: C.text, fontSize: 14, fontWeight: '700' },
-  blobEmpty: {
-    color: 'rgba(255,255,255,0.5)',
+  bannerText: { fontSize: 14, color: Colors.textPrimary, fontWeight: '500' },
+  loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  emptyCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  emptyText: {
     fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingTop: 40,
   },
-  // 태그 네비게이션
-  tagNav: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 20, paddingVertical: 16, gap: 16,
+  graphicArea: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 8,
+    gap: 20,
   },
-  tagNavBtn: { padding: 8 },
-  tagNavArrow: { color: C.text, fontSize: 26 },
-  tagNavArrowDim: { opacity: 0.2 },
-  tagNavLabel: { color: C.text, fontSize: 14, flex: 1, textAlign: 'center' },
-  // 하단 네비
-  bottomNav: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
-    paddingHorizontal: 20, paddingBottom: 32, paddingTop: 12,
-    borderTopWidth: 1, borderColor: C.border,
+  planetContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    gap: 8,
   },
-  navItem: { flex: 1, alignItems: 'center', gap: 2 },
-  navIcon: { color: C.textSec, fontSize: 20 },
-  navActive: { color: C.primary },
-  navLabel: { color: C.textSec, fontSize: 10 },
-  navLabelActive: { color: C.primary },
-  createBtn: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: C.primary, justifyContent: 'center', alignItems: 'center',
-    marginBottom: 6,
+  planetItem: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '500',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  createBtnText: { color: C.text, fontSize: 26, lineHeight: 30 },
+  planetEmpty: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    fontStyle: 'italic',
+  },
+  moreBadge: {
+    backgroundColor: Colors.primary,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  moreBadgeText: { fontSize: 12, color: Colors.textPrimary, fontWeight: '600' },
+  arrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  arrowBtn: { padding: 8 },
+  arrowLabel: {
+    fontSize: 15,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+    minWidth: 130,
+    textAlign: 'center',
+  },
+  listHeader: { paddingTop: 4 },
+  tagChipsRow: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tagChip: {
+    height: 40,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 80,
+  },
+  tagChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  tagChipText: { fontSize: 13, color: Colors.textSecondary },
+  tagChipTextActive: { color: Colors.textPrimary, fontWeight: '600' },
+  totalCount: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+    paddingHorizontal: 20,
+    paddingBottom: 6,
+  },
+  listContent: { paddingHorizontal: 20, paddingBottom: 24, gap: 10 },
+  listCard: {
+    height: 80,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    flexDirection: 'row',
+    overflow: 'hidden',
+  },
+  listThumbnail: { width: 80, height: 80 },
+  listCardText: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    justifyContent: 'space-between',
+  },
+  listBody: { fontSize: 14, color: Colors.textPrimary, lineHeight: 20 },
+  listDateRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  listDate: { fontSize: 12, color: '#9A9FB3' },
 })

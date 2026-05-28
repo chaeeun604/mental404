@@ -1,3 +1,4 @@
+import { Platform } from 'react-native'
 import * as Notifications from 'expo-notifications'
 import { supabase } from '../lib/supabase'
 import { upsertUserSettings, getUserSettings } from './userSettings'
@@ -33,6 +34,8 @@ const WEIGHTS = [
  * 알림 권한을 요청하고 허용 여부를 반환
  */
 export async function registerForPushNotifications(): Promise<boolean> {
+  if (Platform.OS === 'web') return false
+
   const { status: existingStatus } = await Notifications.getPermissionsAsync()
 
   if (existingStatus === 'granted') return true
@@ -108,6 +111,8 @@ export async function getWeightedPeakHour(userId: string): Promise<number | null
  * 6. 매일 반복 알림 스케줄링 + DB에 최종 시간 저장
  */
 export async function scheduleSmartNotification(userId: string): Promise<void> {
+  if (Platform.OS === 'web') return
+
   const granted = await registerForPushNotifications()
   if (!granted) return
 
@@ -171,5 +176,6 @@ export async function scheduleSmartNotification(userId: string): Promise<void> {
  * 알림 끄기 또는 재스케줄링 전에 호출
  */
 export async function cancelAllNotifications(): Promise<void> {
+  if (Platform.OS === 'web') return
   await Notifications.cancelAllScheduledNotificationsAsync()
 }

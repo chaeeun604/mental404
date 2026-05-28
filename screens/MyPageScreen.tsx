@@ -1,149 +1,191 @@
+import { useState, useEffect } from 'react'
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, Switch, Alert,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Switch,
+  Alert,
+  ScrollView,
 } from 'react-native'
-import { useEffect, useState } from 'react'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '../hooks/useAuth'
 import { getUserSettings, upsertUserSettings } from '../api/userSettings'
-import { scheduleSmartNotification, cancelAllNotifications } from '../api/notification'
+import { Colors } from '../constants/colors'
+import type { ScreenProps } from '../types/navigation'
 
-const C = {
-  bg: '#0d0d1e', card: '#1a1a30', primary: '#7b6ef6',
-  text: '#ffffff', textSec: '#8888bb', border: '#252540', danger: '#ff5555',
-}
-
-export default function MyPageScreen({ navigation, route }: any) {
-  // ── 로직 영역 ──────────────────────────────────────────────
-  const { userId, email } = route.params
-  const { signOut } = useAuth()
-  const username = (email as string)?.split('@')[0] ?? '사용자'
-
-  const [notifEnabled, setNotifEnabled] = useState(true)
-  const [loading, setLoading] = useState(true)
+export default function MyPageScreen({ navigation }: ScreenProps<'MyPage'>) {
+  const { session, signOut } = useAuth()
+  const username = session?.user?.email?.split('@')[0] ?? '별님'
+  const [shootingStarNotif, setShootingStarNotif] = useState(false)
+  const [reportNotif, setReportNotif] = useState(false)
 
   useEffect(() => {
-    getUserSettings(userId)
-      .then(s => { if (s) setNotifEnabled(s.notification_enabled) })
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
+    if (!session?.user?.id) return
+    getUserSettings(session.user.id).then((s) => {
+      if (s) setShootingStarNotif(s.notification_enabled ?? false)
+    })
+  }, [session?.user?.id])
 
-  const handleNotifToggle = async (val: boolean) => {
-    setNotifEnabled(val)
-    try {
-      if (val) {
-        await scheduleSmartNotification(userId)
-      } else {
-        await cancelAllNotifications()
-        await upsertUserSettings(userId, { notification_enabled: false })
-      }
-    } catch (e: any) {
-      Alert.alert('오류', e.message)
+  const handleShootingStarToggle = async (val: boolean) => {
+    setShootingStarNotif(val)
+    if (!session?.user?.id) return
+    await upsertUserSettings(session.user.id, { notification_enabled: val }).catch(() => {})
+    if (val) {
+      Alert.alert('알림 설정', '추천 콘텐츠 알림이 켜졌어요.\n매일 별똥별이 도착하면 알려드릴게요.')
+    }
+  }
+
+  const handleReportToggle = async (val: boolean) => {
+    setReportNotif(val)
+    if (val) {
+      Alert.alert('알림 설정', '리포트 알림이 켜졌어요.\n새 리포트가 생성되면 알려드릴게요.')
     }
   }
 
   const handleSignOut = () => {
     Alert.alert('로그아웃', '로그아웃 하시겠습니까?', [
       { text: '취소', style: 'cancel' },
-      {
-        text: '로그아웃', style: 'destructive', onPress: async () => {
-          try { await signOut() } catch (e: any) { Alert.alert('오류', e.message) }
-        },
-      },
+      { text: '로그아웃', style: 'destructive', onPress: () => signOut() },
     ])
   }
-  // ──────────────────────────────────────────────────────────
+
+  const handleNotReady = () => {
+    Alert.alert('준비 중', '아직 준비중이에요.\n조금만 기다려주세요!')
+  }
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={s.content}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={s.back}>←</Text>
-        </TouchableOpacity>
-        <Text style={s.title}>마이페이지</Text>
-        <View style={{ width: 28 }} />
-      </View>
-
-      {/* 사용자 정보 */}
-      <View style={s.userRow}>
-        <Text style={s.username}>{username} 님</Text>
-        <TouchableOpacity style={s.signOutBtn} onPress={handleSignOut}>
-          <Text style={s.signOutText}>로그아웃</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* 알림 설정 */}
-      <View style={s.card}>
-        <View style={s.settingRow}>
-          <Text style={s.settingLabel}>별똥별 도착 알림</Text>
-          <Switch
-            value={notifEnabled}
-            onValueChange={handleNotifToggle}
-            trackColor={{ true: C.primary }}
-            disabled={loading}
-          />
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={24} color={Colors.textSecondary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>마이페이지</Text>
+          <View style={{ width: 36 }} />
         </View>
-        <View style={[s.settingRow, { borderTopWidth: 1, borderColor: C.border, marginTop: 12, paddingTop: 12 }]}>
-          <Text style={s.settingLabel}>리포트 도착 알림</Text>
-          <Switch
-            value={false}
-            onValueChange={() => Alert.alert('준비 중', '곧 지원될 예정이에요!')}
-            trackColor={{ true: C.primary }}
-          />
-        </View>
-      </View>
 
-      {/* 메뉴 */}
-      <TouchableOpacity style={s.menuItem} onPress={() => Alert.alert('약관 및 정책', '준비 중입니다.')}>
-        <Text style={s.menuLabel}>약관 및 정책</Text>
-        <Text style={s.menuArrow}>›</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={s.menuItem} onPress={() => Alert.alert('피드백', '준비 중입니다.')}>
-        <Text style={s.menuLabel}>피드백 보내기</Text>
-        <Text style={s.menuArrow}>›</Text>
-      </TouchableOpacity>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Profile */}
+          <View style={styles.profileSection}>
+            <View style={styles.avatar}>
+              <Ionicons name="person" size={32} color={Colors.textSecondary} />
+            </View>
+            <Text style={styles.username}>{username}님</Text>
+          </View>
 
-      <TouchableOpacity
-        style={s.deleteBtn}
-        onPress={() => Alert.alert('회원 탈퇴', '회원 탈퇴 기능은 준비 중이에요.')}
-      >
-        <Text style={s.deleteBtnText}>회원 탈퇴</Text>
-      </TouchableOpacity>
-    </ScrollView>
+          {/* Notifications */}
+          <View style={styles.section}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>별똥별 도착 알림</Text>
+                <Text style={styles.settingDesc}>추천 콘텐츠 알림을 보내드려요</Text>
+              </View>
+              <Switch
+                value={shootingStarNotif}
+                onValueChange={handleShootingStarToggle}
+                trackColor={{ true: Colors.primary, false: Colors.surfaceBorder }}
+                thumbColor={Colors.textPrimary}
+              />
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>리포트 도착 알림</Text>
+                <Text style={styles.settingDesc}>새 리포트가 생성되면 알려드려요</Text>
+              </View>
+              <Switch
+                value={reportNotif}
+                onValueChange={handleReportToggle}
+                trackColor={{ true: Colors.primary, false: Colors.surfaceBorder }}
+                thumbColor={Colors.textPrimary}
+              />
+            </View>
+          </View>
+
+          {/* Links */}
+          <View style={styles.section}>
+            <TouchableOpacity style={styles.linkRow} onPress={handleNotReady}>
+              <Text style={styles.linkLabel}>약관 및 정책</Text>
+              <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+            </TouchableOpacity>
+            <View style={styles.divider} />
+            <TouchableOpacity style={styles.linkRow} onPress={handleNotReady}>
+              <Text style={styles.linkLabel}>피드백 보내기</Text>
+              <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Sign out */}
+          <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
+            <Text style={styles.signOutText}>회원 탈퇴</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   )
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
-  content: { padding: 20, paddingBottom: 48 },
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.bgMain },
+  safeArea: { flex: 1 },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginBottom: 28, paddingTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  back: { color: C.textSec, fontSize: 22 },
-  title: { color: C.text, fontSize: 17, fontWeight: '600' },
-  userRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 28,
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: Colors.textPrimary,
   },
-  username: { color: C.text, fontSize: 18, fontWeight: '600' },
+  scrollContent: { padding: 20, gap: 16, paddingBottom: 40 },
+  profileSection: { alignItems: 'flex-start', paddingVertical: 12, gap: 4 },
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+    marginBottom: 8,
+  },
+  username: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  section: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+  },
+  settingInfo: { flex: 1, gap: 3 },
+  settingLabel: { fontSize: 15, color: Colors.textPrimary },
+  settingDesc: { fontSize: 12, color: Colors.textTertiary },
+  divider: { height: 1, backgroundColor: Colors.surfaceBorder },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+  },
+  linkLabel: { fontSize: 15, color: Colors.textPrimary },
   signOutBtn: {
-    borderWidth: 1, borderColor: C.border, borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 6,
+    alignItems: 'center',
+    paddingVertical: 16,
   },
-  signOutText: { color: C.textSec, fontSize: 13 },
-  card: {
-    backgroundColor: C.card, borderRadius: 14, padding: 16,
-    borderWidth: 1, borderColor: C.border, marginBottom: 16,
-  },
-  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  settingLabel: { color: C.text, fontSize: 15 },
-  menuItem: {
-    backgroundColor: C.card, borderRadius: 14, padding: 16,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    borderWidth: 1, borderColor: C.border, marginBottom: 10,
-  },
-  menuLabel: { color: C.text, fontSize: 15 },
-  menuArrow: { color: C.textSec, fontSize: 20 },
-  deleteBtn: { marginTop: 24, alignItems: 'center', padding: 12 },
-  deleteBtnText: { color: C.danger, fontSize: 13 },
+  signOutText: { fontSize: 13, color: Colors.textTertiary },
 })

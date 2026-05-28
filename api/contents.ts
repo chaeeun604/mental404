@@ -1,3 +1,4 @@
+import { Platform } from 'react-native'
 import { supabase } from '../lib/supabase'
 import { ContentRow, ContentWithTags } from '../types/database'
 import * as FileSystem from 'expo-file-system'
@@ -97,9 +98,23 @@ export async function getContentById(contentId: string): Promise<ContentWithTags
 // }
 
 export async function uploadImage(user_id: string, uri: string): Promise<string> {
+  const basePath = `${user_id}/${Date.now()}`
+
+  if (Platform.OS === 'web') {
+    const response = await fetch(uri)
+    const blob = await response.blob()
+    const ext = blob.type.split('/')[1] ?? 'jpg'
+    const path = `${basePath}.${ext}`
+    const { error } = await supabase.storage
+      .from('contents')
+      .upload(path, blob, { contentType: blob.type })
+    if (error) throw error
+    return supabase.storage.from('contents').getPublicUrl(path).data.publicUrl
+  }
+
   const ext = (uri.split('.').pop() ?? 'jpg').toLowerCase().split('?')[0]
   const mimeType = (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : `image/${ext}`
-  const path = `${user_id}/${Date.now()}.${ext}`
+  const path = `${basePath}.${ext}`
 
   const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any })
   const binaryString = atob(base64)

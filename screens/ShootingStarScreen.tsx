@@ -1,174 +1,239 @@
+import { useEffect, useState, useRef } from 'react'
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Image, Dimensions,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native'
-import { useEffect, useState } from 'react'
-import { getContentById } from '../api/contents'
-import { ContentWithTags } from '../types/database'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { Ionicons } from '@expo/vector-icons'
+import { useAuth } from '../hooks/useAuth'
+import { getDailyRecommendation } from '../api/contents'
+import { logView } from '../api/viewLogs'
+import { Colors } from '../constants/colors'
+import type { ScreenProps } from '../types/navigation'
+import type { ContentWithTags } from '../types/database'
 
-const { width: SW } = Dimensions.get('window')
-
-const C = {
-  bg: '#0b0b1a', card: '#161628', primary: '#7b6ef6',
-  text: '#ffffff', textSec: '#8888bb', border: '#252540',
-  tagBg: 'rgba(123,110,246,0.32)', memoBg: '#1c1c34',
-}
-
-export default function ShootingStarScreen({ navigation, route }: any) {
-  // ── 로직 영역 ──────────────────────────────────────────────
-  const { contentId, userId } = route.params
-  const [content, setContent] = useState<ContentWithTags | null>(null)
-  const [loading, setLoading] = useState(true)
+export default function ShootingStarScreen({ navigation }: ScreenProps<'ShootingStar'>) {
+  const { session } = useAuth()
   const [revealed, setRevealed] = useState(false)
+  const [content, setContent] = useState<ContentWithTags | null | undefined>(undefined)
+  const [loading, setLoading] = useState(false)
+  const scaleAnim = useRef(new Animated.Value(1)).current
+  const fadeAnim = useRef(new Animated.Value(0)).current
+  const questionOpacity = useRef(new Animated.Value(1)).current
 
-  useEffect(() => {
-    getContentById(contentId)
-      .then(setContent)
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
+  const reveal = async () => {
+    if (revealed || loading) return
+    setLoading(true)
 
-  const now = new Date()
-  const dateDisplay = `${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`
+    Animated.timing(questionOpacity, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start()
 
-  const createdAt = content?.created_at ? new Date(content.created_at) : null
-  const createdLabel = createdAt
-    ? `${createdAt.getMonth() + 1}월 ${createdAt.getDate()}일`
-    : ''
-
-  const tags = content?.content_tags?.map(ct => ct.tags) ?? []
-  // ──────────────────────────────────────────────────────────
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 1.15,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(async () => {
+      try {
+        const result = await getDailyRecommendation()
+        setContent(result)
+        if (result && session?.user?.id) {
+          await logView(session.user.id, result.id).catch(() => {})
+        }
+      } catch {
+        setContent(null)
+      } finally {
+        setLoading(false)
+        setRevealed(true)
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }).start()
+      }
+    })
+  }
 
   return (
-    <View style={s.container}>
-      {/* 배경 별 장식 */}
-      <View style={s.starDot1} />
-      <View style={s.starDot2} />
-      <View style={s.starDot3} />
-      <View style={s.starDot4} />
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
+        <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
+          <Ionicons name="chevron-down" size={24} color={Colors.textSecondary} />
+        </TouchableOpacity>
 
-      {/* X 버튼 */}
-      <TouchableOpacity style={s.closeBtn} onPress={() => navigation.goBack()}>
-        <Text style={s.closeText}>×</Text>
-      </TouchableOpacity>
-
-      {loading ? (
-        <ActivityIndicator color={C.primary} style={s.loader} />
-      ) : !revealed ? (
-        /* ── 미스터리 박스 상태 ── */
-        <View style={s.mysteryContainer}>
-          <Text style={s.mysteryTitle}>오늘은 어떤 별이{'\n'}떨어졌을까요?</Text>
-          <Text style={s.mysterySub}>기록한 별 중 하나가 매일 랜덤으로 떨어져요.</Text>
-
-          <TouchableOpacity style={s.mysteryBox} onPress={() => setRevealed(true)} activeOpacity={0.75}>
-            <Text style={s.questionMark}>?</Text>
-          </TouchableOpacity>
+        <View style={styles.titleSection}>
+          <Text style={styles.title}>오늘은 어떤 별이{'\n'}떨어졌을까요?</Text>
+          <Text style={styles.subtitle}>기록한 별 중 하나가 무작위로 떨어집니다.</Text>
         </View>
-      ) : (
-        /* ── 공개된 콘텐츠 상태 ── */
-        <View style={s.revealContainer}>
-          {/* 픽셀 날짜 */}
-          <Text style={s.pixelDate}>{dateDisplay}</Text>
 
-          {/* 태그 칩 */}
-          {tags.length > 0 && (
-            <View style={s.tagsRow}>
-              {tags.map(tag => (
-                <View key={tag.id} style={s.tagChip}>
-                  <Text style={s.tagText}>{tag.emoji} {tag.name}</Text>
+        {!revealed ? (
+          <View style={styles.mysteryArea}>
+            <TouchableOpacity onPress={reveal} activeOpacity={0.85} disabled={loading}>
+              <Animated.View style={[styles.mysteryBox, { transform: [{ scale: scaleAnim }] }]}>
+                <Animated.Text style={[styles.questionMark, { opacity: questionOpacity }]}>
+                  ?
+                </Animated.Text>
+                {loading && (
+                  <ActivityIndicator
+                    color={Colors.primaryLight}
+                    style={StyleSheet.absoluteFill}
+                  />
+                )}
+              </Animated.View>
+            </TouchableOpacity>
+            <Text style={styles.tapHint}>탭하여 별을 확인하세요</Text>
+          </View>
+        ) : (
+          <Animated.View style={[styles.revealArea, { opacity: fadeAnim }]}>
+            {content == null ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyIcon}>🌌</Text>
+                <Text style={styles.emptyTitle}>아직 별이 없어요</Text>
+                <Text style={styles.emptySubtitle}>기억을 기록하면 여기서 만날 수 있어요.</Text>
+              </View>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={styles.contentCard}>
+                  <Text style={styles.contentDate}>
+                    {new Date(content.created_at).toLocaleDateString('ko-KR', {
+                      month: '2-digit',
+                      day: '2-digit',
+                    })}
+                  </Text>
+
+                  <View style={styles.tagRow}>
+                    {content.content_tags?.map((ct) => (
+                      <View key={ct.tag_id} style={styles.tagChip}>
+                        <Text style={styles.tagChipText}>{ct.tags?.name}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <Text style={styles.contentBody}>
+                    {content.type === 'text' ? content.body : '📷 이미지'}
+                  </Text>
+
+                  {content.memo ? (
+                    <View style={styles.memoSection}>
+                      <Text style={styles.memoText}>{content.memo}</Text>
+                    </View>
+                  ) : null}
                 </View>
-              ))}
-            </View>
-          )}
 
-          {/* 콘텐츠 본문 */}
-          {content?.type === 'image' && content.image_url ? (
-            <Image source={{ uri: content.image_url }} style={s.contentImage} />
-          ) : (
-            <Text style={s.contentBody}>{content?.body}</Text>
-          )}
-
-          {/* 메모 박스 */}
-          {!!content?.memo && (
-            <View style={s.memoBox}>
-              <Text style={s.memoText}>{content.memo}</Text>
-            </View>
-          )}
-
-          {/* 저장 날짜 */}
-          {!!createdLabel && (
-            <View style={s.dateRow}>
-              <Text style={s.dateIcon}>🕐</Text>
-              <Text style={s.dateText}>{createdLabel}</Text>
-            </View>
-          )}
-        </View>
-      )}
+                <TouchableOpacity
+                  style={styles.detailBtn}
+                  onPress={() =>
+                    navigation.navigate('ContentDetail', { contentId: content.id })
+                  }
+                >
+                  <Text style={styles.detailBtnText}>자세히 보기</Text>
+                  <Ionicons name="arrow-forward" size={16} color={Colors.textPrimary} />
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+          </Animated.View>
+        )}
+      </SafeAreaView>
     </View>
   )
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
-  loader: { flex: 1 },
-
-  // 배경 별 장식
-  starDot1: { position: 'absolute', top: 80,  left: 30,  width: 3, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.4)' },
-  starDot2: { position: 'absolute', top: 180, right: 50, width: 2, height: 2, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.3)' },
-  starDot3: { position: 'absolute', top: 320, left: 60,  width: 2, height: 2, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.25)' },
-  starDot4: { position: 'absolute', bottom: 200, right: 40, width: 3, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.35)' },
-
-  closeBtn: { position: 'absolute', top: 54, right: 22, zIndex: 10, padding: 8 },
-  closeText: { color: C.textSec, fontSize: 26 },
-
-  // ── 미스터리 박스 ──
-  mysteryContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  mysteryTitle: {
-    color: C.text, fontSize: 24, fontWeight: '700', textAlign: 'center', lineHeight: 34,
-    marginBottom: 12,
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.bgMain },
+  safeArea: { flex: 1 },
+  closeBtn: { padding: 16, alignSelf: 'center' },
+  titleSection: { alignItems: 'center', paddingHorizontal: 24, paddingBottom: 32, gap: 10 },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    textAlign: 'center',
+    lineHeight: 34,
   },
-  mysterySub: {
-    color: C.textSec, fontSize: 13, textAlign: 'center', marginBottom: 52,
-  },
+  subtitle: { fontSize: 13, color: Colors.textSecondary, textAlign: 'center' },
+  mysteryArea: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 20 },
   mysteryBox: {
-    width: SW * 0.58,
-    height: SW * 0.58,
-    backgroundColor: C.card,
-    borderRadius: 24,
+    width: 160,
+    height: 160,
+    borderRadius: 32,
+    backgroundColor: Colors.surface,
+    borderWidth: 2,
+    borderColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: C.border,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  questionMark: { color: 'rgba(255,255,255,0.35)', fontSize: 64, fontWeight: '300' },
-
-  // ── 공개된 콘텐츠 ──
-  revealContainer: {
-    flex: 1, paddingHorizontal: 28, paddingTop: 100, paddingBottom: 40,
-  },
-  pixelDate: {
-    color: C.text,
-    fontSize: 48,
-    fontFamily: 'Courier New',
+  questionMark: {
+    fontSize: 72,
+    color: Colors.primaryLight,
     fontWeight: '700',
-    letterSpacing: 4,
-    marginBottom: 24,
   },
-  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 28 },
+  tapHint: { fontSize: 13, color: Colors.textTertiary },
+  revealArea: { flex: 1, paddingHorizontal: 20 },
+  emptyCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 40,
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+  },
+  emptyIcon: { fontSize: 48 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: Colors.textPrimary },
+  emptySubtitle: { fontSize: 13, color: Colors.textSecondary, textAlign: 'center' },
+  contentCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 24,
+    gap: 16,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+  },
+  contentDate: { fontSize: 12, color: Colors.textTertiary },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tagChip: {
-    backgroundColor: C.tagBg, borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 6,
+    backgroundColor: Colors.surfaceBorder,
+    borderRadius: 100,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
-  tagText: { color: C.text, fontSize: 13 },
-  contentImage: { width: '100%', height: 200, borderRadius: 14, resizeMode: 'cover', marginBottom: 20 },
-  contentBody: {
-    color: C.text, fontSize: 17, lineHeight: 28, marginBottom: 28,
+  tagChipText: { fontSize: 12, color: Colors.primaryLight, fontWeight: '500' },
+  contentBody: { fontSize: 16, color: Colors.textPrimary, lineHeight: 26 },
+  memoSection: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.surfaceBorder,
+    paddingTop: 12,
   },
-  memoBox: {
-    backgroundColor: C.memoBg, borderRadius: 14,
-    paddingHorizontal: 20, paddingVertical: 16, marginBottom: 24,
+  memoText: { fontSize: 13, color: Colors.textSecondary, lineHeight: 20 },
+  detailBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+    marginBottom: 32,
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
   },
-  memoText: { color: C.textSec, fontSize: 14, lineHeight: 22 },
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dateIcon: { fontSize: 13 },
-  dateText: { color: C.textSec, fontSize: 13 },
+  detailBtnText: { fontSize: 15, color: Colors.textPrimary, fontWeight: '600' },
 })

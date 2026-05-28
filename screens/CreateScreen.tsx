@@ -1,401 +1,413 @@
-import {
-  View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, Alert, ActivityIndicator, Image,
-} from 'react-native'
 import { useState } from 'react'
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ScrollView,
+  Image,
+  ActivityIndicator,
+} from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
+import { useAuth } from '../hooks/useAuth'
 import { useTags } from '../hooks/useTags'
-import { createContent, uploadImage } from '../api/contents'
-
-const C = {
-  bg: '#0d0d1e', card: '#1a1a30', primary: '#7b6ef6',
-  text: '#ffffff', textSec: '#8888bb', border: '#252540',
-  tagBg: '#1e1e38', tagSel: '#6b5ce7', btnDim: '#2a2a45',
-}
+import { createContent } from '../api/contents'
+import { Colors } from '../constants/colors'
+import type { ScreenProps } from '../types/navigation'
+import type { ContentRow } from '../types/database'
 
 type Step = 1 | 2 | 3 | 4
 type ContentType = 'text' | 'image'
 
-export default function CreateScreen({ navigation, route }: any) {
-  // ── 로직 영역 ──────────────────────────────────────────────
-  const { userId, email } = route.params
-  const { tags, addCustomTag } = useTags(userId)
+export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
+  const { session } = useAuth()
+  const { tags } = useTags(session?.user?.id ?? '')
+  const [step, setStep] = useState<Step>(1)
+  const [contentType, setContentType] = useState<ContentType>('text')
+  const [body, setBody] = useState('')
+  const [imageUri, setImageUri] = useState<string | null>(null)
+  const [memo, setMemo] = useState('')
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
+  const [saving, setSaving] = useState(false)
+  const [savedContent, setSavedContent] = useState<ContentRow | null>(null)
 
-  const [step, setStep]               = useState<Step>(1)
-  const [type, setType]               = useState<ContentType>('text')
-  const [body, setBody]               = useState('')
-  const [memo, setMemo]               = useState('')
-  const [imageUri, setImageUri]       = useState<string | null>(null)
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [newTagName, setNewTagName]   = useState('')
-  const [submitting, setSubmitting]   = useState(false)
-  const [addingTag, setAddingTag]     = useState(false)
-
-  const hasContent = type === 'text' ? body.trim().length > 0 : imageUri !== null
-
-  // × 버튼: 내용 있으면 폐기 확인
-  const handleClose = () => {
-    if (!hasContent) { navigation.goBack(); return }
-    Alert.alert('변경사항 폐기', '작성하신 내용은 복구되지 않아요.', [
-      { text: '취소', style: 'cancel' },
-      { text: '폐기', style: 'destructive', onPress: () => navigation.goBack() },
-    ])
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    })
+    if (!result.canceled && result.assets.length > 0) {
+      setImageUri(result.assets[0].uri)
+    }
   }
 
-  // 이미지 선택 옵션
-  const showImageOptions = () => {
-    Alert.alert('사진 추가', '', [
-      { text: '📷 사진 찍기', onPress: takePhoto },
-      { text: '🖼️ 갤러리에서 선택', onPress: pickFromGallery },
-      { text: '취소', style: 'cancel' },
-    ])
+  const toggleTag = (tagId: string) => {
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+    )
   }
 
-  const pickFromGallery = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (status !== 'granted') { Alert.alert('갤러리 접근 권한이 필요해요.'); return }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] as any })
-    if (!result.canceled) setImageUri(result.assets[0].uri)
-  }
+  const canProceedStep2 =
+    contentType === 'text' ? body.trim().length > 0 : imageUri !== null
 
-  const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync()
-    if (status !== 'granted') { Alert.alert('카메라 접근 권한이 필요해요.'); return }
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'] as any })
-    if (!result.canceled) setImageUri(result.assets[0].uri)
-  }
-
-  // Step 2 → 3
-  const handleNext = () => {
-    if (type === 'text' && !body.trim()) { Alert.alert('텍스트를 입력해주세요.'); return }
-    if (type === 'image' && !imageUri)   { Alert.alert('이미지를 선택해주세요.'); return }
-    setStep(3)
-  }
-
-  // Step 3 → 저장 → Step 4
   const handleSave = async () => {
-    setSubmitting(true)
+    if (!session?.user?.id) return
+    setSaving(true)
     try {
-      let image_url: string | undefined
-      if (type === 'image' && imageUri) image_url = await uploadImage(userId, imageUri)
-      await createContent(
-        userId,
-        { type, body: type === 'text' ? body : undefined, image_url, memo: memo || undefined },
-        selectedTags
+      const result = await createContent(
+        session.user.id,
+        {
+          type: contentType,
+          body: contentType === 'text' ? body.trim() : undefined,
+          image_url: contentType === 'image' ? (imageUri ?? undefined) : undefined,
+          memo: memo.trim() || undefined,
+        },
+        selectedTagIds
       )
+      setSavedContent(result)
       setStep(4)
     } catch (e: any) {
       Alert.alert('오류', e.message)
     } finally {
-      setSubmitting(false)
+      setSaving(false)
     }
   }
 
-  const toggleTag = (tagId: string) =>
-    setSelectedTags(prev =>
-      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
-    )
-
-  const handleAddTag = async () => {
-    const name = newTagName.trim()
-    if (!name) return
-    setAddingTag(true)
-    try { await addCustomTag(name, '✨'); setNewTagName('') }
-    catch (e: any) { Alert.alert('오류', e.message) }
-    finally { setAddingTag(false) }
-  }
-  // ──────────────────────────────────────────────────────────
-
-  // ── Step 1: 유형 선택 ──────────────────────────────────────
-  if (step === 1) {
-    return (
-      <View style={s.container}>
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={s.headerIcon}>←</Text>
-          </TouchableOpacity>
-          <View style={{ width: 28 }} />
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={s.headerIcon}>×</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={s.stepTitle}>어떤 별을 담을까요?</Text>
-
-        <View style={s.typeSelectArea}>
-          <TouchableOpacity
-            style={s.typeCard}
-            onPress={() => { setType('text'); setStep(2) }}
-            activeOpacity={0.8}
-          >
-            <Text style={s.typeCardIcon}>A</Text>
-            <View>
-              <Text style={s.typeCardLabel}>텍스트</Text>
-              <Text style={s.typeCardDesc}>한 줄, 영감이나 격언, 가사 등</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={s.typeCard}
-            onPress={() => { setType('image'); setStep(2) }}
-            activeOpacity={0.8}
-          >
-            <Text style={s.typeCardIcon}>📷</Text>
-            <View>
-              <Text style={s.typeCardLabel}>사진</Text>
-              <Text style={s.typeCardDesc}>메시지, 사진, 기억 등</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-    )
+  const handleClose = () => {
+    if (step === 4) {
+      navigation.goBack()
+      return
+    }
+    Alert.alert('기록을 그만할까요?', '지금까지 작성한 내용이 삭제돼요.', [
+      { text: '계속 작성', style: 'cancel' },
+      { text: '그만하기', style: 'destructive', onPress: () => navigation.goBack() },
+    ])
   }
 
-  // ── Step 2: 기록 입력 ──────────────────────────────────────
-  if (step === 2) {
-    return (
-      <ScrollView style={s.container} contentContainerStyle={s.content}>
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => setStep(1)}>
-            <Text style={s.headerIcon}>←</Text>
-          </TouchableOpacity>
-          <View style={{ width: 28 }} />
-          <TouchableOpacity onPress={handleClose}>
-            <Text style={s.headerIcon}>×</Text>
-          </TouchableOpacity>
-        </View>
+  const goBack = () => {
+    if (step === 1) navigation.goBack()
+    else setStep((s) => (s - 1) as Step)
+  }
 
-        {/* 본문 입력 */}
-        {type === 'text' ? (
-          <TextInput
-            style={s.textArea}
-            placeholder="텍스트를 작성해주세요."
-            placeholderTextColor={C.textSec}
-            value={body}
-            onChangeText={setBody}
-            multiline
-            textAlignVertical="top"
-          />
-        ) : !imageUri ? (
-          <TouchableOpacity style={s.imageUploadArea} onPress={showImageOptions}>
-            <View style={s.imageUploadPlus}>
-              <Text style={s.imageUploadPlusText}>+</Text>
+  const goNext = () => {
+    if (step === 3) handleSave()
+    else setStep((s) => (s + 1) as Step)
+  }
+
+  const nextDisabled = (step === 2 && !canProceedStep2) || saving
+
+  if (step === 4) {
+    return (
+      <View style={styles.container}>
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.successContainer}>
+            <Text style={styles.successIcon}>✦</Text>
+            <Text style={styles.successTitle}>별이 생성됐어요!</Text>
+            <Text style={styles.successSubtitle}>
+              {contentType === 'text' && body
+                ? body.length > 40
+                  ? body.slice(0, 40) + '…'
+                  : body
+                : '이미지 기록'}
+            </Text>
+
+            <View style={styles.successActions}>
+              <TouchableOpacity
+                style={styles.secondaryBtn}
+                onPress={() => navigation.replace('Home')}
+              >
+                <Text style={styles.secondaryBtnText}>홈으로 가기</Text>
+              </TouchableOpacity>
+
+              {savedContent && (
+                <TouchableOpacity
+                  style={styles.primaryBtn}
+                  onPress={() =>
+                    navigation.replace('ContentDetail', { contentId: savedContent.id })
+                  }
+                >
+                  <Text style={styles.primaryBtnText}>별 보러가기</Text>
+                  <Ionicons name="arrow-forward" size={16} color={Colors.textPrimary} />
+                </TouchableOpacity>
+              )}
             </View>
-            <Text style={s.imageUploadHint}>사진을 업로드해주세요.</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={s.imageSelectedWrap}>
-            <Image source={{ uri: imageUri }} style={s.imageSelected} />
-            <TouchableOpacity style={s.imageEditBtn} onPress={showImageOptions}>
-              <Text style={s.imageEditIcon}>✏️</Text>
-            </TouchableOpacity>
           </View>
-        )}
-
-        {/* 메모 */}
-        <TextInput
-          style={s.memoInput}
-          placeholder="어떤 생각이 들었나요?"
-          placeholderTextColor={C.textSec}
-          value={memo}
-          onChangeText={setMemo}
-        />
-
-        <TouchableOpacity
-          style={[s.nextBtn, !hasContent && s.nextBtnDim]}
-          onPress={handleNext}
-        >
-          <Text style={s.nextBtnText}>다음</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    )
-  }
-
-  // ── Step 3: 태그 선택 ──────────────────────────────────────
-  if (step === 3) {
-    return (
-      <ScrollView style={s.container} contentContainerStyle={s.content}>
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => setStep(2)}>
-            <Text style={s.headerIcon}>←</Text>
-          </TouchableOpacity>
-          <View style={{ width: 28 }} />
-          <TouchableOpacity onPress={handleClose}>
-            <Text style={s.headerIcon}>×</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={s.stepTitle}>별을 언제 꺼내볼까요?</Text>
-
-        <View style={s.tagGrid}>
-          {tags.map(tag => (
-            <TouchableOpacity
-              key={tag.id}
-              style={[s.tagBtn, selectedTags.includes(tag.id) && s.tagBtnSel]}
-              onPress={() => toggleTag(tag.id)}
-            >
-              <Text style={s.tagText}>{tag.emoji} {tag.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* 커스텀 태그 추가 */}
-        <View style={s.addTagRow}>
-          <TextInput
-            style={s.addTagInput}
-            placeholder="원하는 태그를 추가해봐요."
-            placeholderTextColor={C.textSec}
-            value={newTagName}
-            onChangeText={setNewTagName}
-            onSubmitEditing={handleAddTag}
-            returnKeyType="done"
-          />
-          <TouchableOpacity style={s.addTagBtn} onPress={handleAddTag} disabled={addingTag}>
-            {addingTag
-              ? <ActivityIndicator color={C.text} size="small" />
-              : <Text style={s.addTagBtnText}>+</Text>
-            }
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity style={s.nextBtn} onPress={handleSave} disabled={submitting}>
-          {submitting
-            ? <ActivityIndicator color={C.text} />
-            : <Text style={s.nextBtnText}>저장</Text>
-          }
-        </TouchableOpacity>
-      </ScrollView>
-    )
-  }
-
-  // ── Step 4: 저장 완료 ──────────────────────────────────────
-  return (
-    <View style={[s.container, s.completionContainer]}>
-      <Text style={s.completionTitle}>저장 완료!</Text>
-      <Text style={s.completionSub}>기록한 별은 언제든 다시 꺼내볼 수 있어요.</Text>
-
-      {type === 'image' && imageUri && (
-        <Image source={{ uri: imageUri }} style={s.completionImage} />
-      )}
-      {type === 'text' && body.trim() && (
-        <View style={s.completionTextCard}>
-          <Text style={s.completionText} numberOfLines={4}>{body}</Text>
-        </View>
-      )}
-
-      <View style={s.completionBtns}>
-        <TouchableOpacity
-          style={s.completionBtnOutline}
-          onPress={() => navigation.navigate('Home', { userId, email })}
-        >
-          <Text style={s.completionBtnOutlineText}>홈으로 가기</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={s.completionBtnFill}
-          onPress={() => navigation.navigate('Browse', { userId, email })}
-        >
-          <Text style={s.completionBtnFillText}>별 보러가기</Text>
-        </TouchableOpacity>
+        </SafeAreaView>
       </View>
+    )
+  }
+
+  return (
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={goBack}>
+            <Ionicons name="chevron-back" size={24} color={Colors.textSecondary} />
+          </TouchableOpacity>
+          <Text style={styles.stepIndicator}>{step} / 3</Text>
+          <TouchableOpacity onPress={handleClose}>
+            <Ionicons name="close" size={24} color={Colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Step 1: Choose type */}
+          {step === 1 && (
+            <View style={styles.stepContainer}>
+              <Text style={styles.stepTitle}>어떤 별을 기록할까요?</Text>
+              <Text style={styles.stepSubtitle}>기록할 내용의 형식을 선택해주세요</Text>
+              <View style={styles.typeRow}>
+                <TouchableOpacity
+                  style={[styles.typeCard, contentType === 'text' && styles.typeCardActive]}
+                  onPress={() => setContentType('text')}
+                >
+                  <Ionicons
+                    name="document-text-outline"
+                    size={40}
+                    color={contentType === 'text' ? Colors.primary : Colors.textTertiary}
+                  />
+                  <Text style={[styles.typeLabel, contentType === 'text' && styles.typeLabelActive]}>
+                    텍스트
+                  </Text>
+                  <Text style={styles.typeDesc}>글로 기록하기</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.typeCard, contentType === 'image' && styles.typeCardActive]}
+                  onPress={() => setContentType('image')}
+                >
+                  <Ionicons
+                    name="image-outline"
+                    size={40}
+                    color={contentType === 'image' ? Colors.primary : Colors.textTertiary}
+                  />
+                  <Text style={[styles.typeLabel, contentType === 'image' && styles.typeLabelActive]}>
+                    이미지
+                  </Text>
+                  <Text style={styles.typeDesc}>사진으로 기록하기</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* Step 2: Content input + memo */}
+          {step === 2 && (
+            <View style={styles.stepContainer}>
+              <Text style={styles.stepTitle}>기억을 담아요</Text>
+
+              {contentType === 'text' ? (
+                <TextInput
+                  style={styles.textArea}
+                  placeholder="오늘의 기억을 적어보세요..."
+                  placeholderTextColor={Colors.textTertiary}
+                  value={body}
+                  onChangeText={setBody}
+                  multiline
+                  textAlignVertical="top"
+                  autoFocus
+                />
+              ) : (
+                <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+                  {imageUri ? (
+                    <Image source={{ uri: imageUri }} style={styles.selectedImage} />
+                  ) : (
+                    <>
+                      <Ionicons name="add-circle-outline" size={48} color={Colors.textTertiary} />
+                      <Text style={styles.imagePickerText}>이미지 선택하기</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              <Text style={styles.fieldLabel}>메모 (선택)</Text>
+              <TextInput
+                style={styles.inputField}
+                placeholder="짧은 메모를 남겨보세요"
+                placeholderTextColor={Colors.textTertiary}
+                value={memo}
+                onChangeText={setMemo}
+              />
+            </View>
+          )}
+
+          {/* Step 3: Tag selection */}
+          {step === 3 && (
+            <View style={styles.stepContainer}>
+              <Text style={styles.stepTitle}>별을 언제 꺼내볼까요?</Text>
+              <Text style={styles.stepSubtitle}>감정 태그를 골라보세요 (중복 선택 가능)</Text>
+              <View style={styles.chipGrid}>
+                {tags.map((tag) => {
+                  const isSelected = selectedTagIds.includes(tag.id)
+                  return (
+                    <TouchableOpacity
+                      key={tag.id}
+                      style={[styles.tagChip, isSelected && styles.tagChipActive]}
+                      onPress={() => toggleTag(tag.id)}
+                    >
+                      <Text style={[styles.tagChipText, isSelected && styles.tagChipTextActive]}>
+                        {tag.name}
+                      </Text>
+                      {isSelected && (
+                        <Ionicons name="checkmark" size={14} color={Colors.textPrimary} />
+                      )}
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Bottom next button */}
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={[styles.nextBtn, nextDisabled && styles.nextBtnDisabled]}
+            onPress={goNext}
+            disabled={nextDisabled}
+          >
+            {saving ? (
+              <ActivityIndicator color={Colors.textPrimary} />
+            ) : (
+              <Text style={styles.nextBtnText}>{step === 3 ? '저장하기' : '다음'}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     </View>
   )
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
-  content: { paddingHorizontal: 20, paddingBottom: 48 },
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.bgMain },
+  safeArea: { flex: 1 },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 54, paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  headerIcon: { color: C.textSec, fontSize: 22, padding: 4 },
-
-  // Step 1
-  stepTitle: { color: C.text, fontSize: 18, fontWeight: '600', paddingHorizontal: 20, marginBottom: 24, marginTop: 8 },
-  typeSelectArea: { paddingHorizontal: 20, gap: 14 },
+  stepIndicator: { fontSize: 14, color: Colors.textSecondary, fontWeight: '500' },
+  scroll: { flex: 1 },
+  scrollContent: { padding: 20, gap: 16, paddingBottom: 20 },
+  stepContainer: { gap: 16 },
+  stepTitle: { fontSize: 24, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
+  stepSubtitle: { fontSize: 14, color: Colors.textSecondary },
+  typeRow: { flexDirection: 'row', gap: 16 },
   typeCard: {
-    backgroundColor: C.card, borderRadius: 16, padding: 20,
-    flexDirection: 'row', alignItems: 'center', gap: 16,
-    borderWidth: 1, borderColor: C.border,
+    flex: 1,
+    alignItems: 'center',
+    padding: 24,
+    borderRadius: 16,
+    backgroundColor: Colors.surface,
+    borderWidth: 2,
+    borderColor: Colors.surfaceBorder,
+    gap: 8,
   },
-  typeCardIcon: { fontSize: 28, color: C.text, fontWeight: '700', width: 36, textAlign: 'center' },
-  typeCardLabel: { color: C.text, fontSize: 16, fontWeight: '600', marginBottom: 3 },
-  typeCardDesc: { color: C.textSec, fontSize: 12 },
-
-  // Step 2 - text
+  typeCardActive: { borderColor: Colors.primary },
+  typeLabel: { fontSize: 16, fontWeight: '600', color: Colors.textSecondary },
+  typeLabelActive: { color: Colors.textPrimary },
+  typeDesc: { fontSize: 12, color: Colors.textTertiary },
   textArea: {
-    backgroundColor: C.card, borderRadius: 14, padding: 16,
-    color: C.text, fontSize: 15, minHeight: 200, marginBottom: 14,
-    borderWidth: 1, borderColor: C.border,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 15,
+    color: Colors.textPrimary,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+    minHeight: 200,
+    lineHeight: 24,
   },
-  // Step 2 - image upload
-  imageUploadArea: {
-    backgroundColor: C.card, borderRadius: 14, height: 200,
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1, borderColor: C.border, marginBottom: 14, gap: 10,
+  imagePicker: {
+    height: 220,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    overflow: 'hidden',
   },
-  imageUploadPlus: {
-    width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: C.border,
-    justifyContent: 'center', alignItems: 'center',
+  selectedImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  imagePickerText: { fontSize: 14, color: Colors.textTertiary },
+  fieldLabel: { fontSize: 13, color: Colors.textSecondary, fontWeight: '500' },
+  inputField: {
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: Colors.textPrimary,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
   },
-  imageUploadPlusText: { color: C.textSec, fontSize: 28, lineHeight: 32 },
-  imageUploadHint: { color: C.textSec, fontSize: 13 },
-  imageSelectedWrap: { position: 'relative', marginBottom: 14 },
-  imageSelected: { width: '100%', height: 220, borderRadius: 14, resizeMode: 'cover' },
-  imageEditBtn: {
-    position: 'absolute', bottom: 10, right: 10,
-    backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20, padding: 8,
+  chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  tagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: Colors.surface,
+    borderWidth: 1.5,
+    borderColor: Colors.surfaceBorder,
   },
-  imageEditIcon: { fontSize: 14 },
-
-  // 공통 Step 2/3
-  memoInput: {
-    backgroundColor: C.card, borderRadius: 14, padding: 14,
-    color: C.text, fontSize: 14, marginBottom: 24,
-    borderWidth: 1, borderColor: C.border,
+  tagChipActive: { backgroundColor: Colors.primary + '33', borderColor: Colors.primary },
+  tagChipText: { fontSize: 14, color: Colors.textSecondary },
+  tagChipTextActive: { color: Colors.textPrimary, fontWeight: '600' },
+  bottomBar: { paddingHorizontal: 20, paddingBottom: 20, paddingTop: 12 },
+  nextBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
   },
-  nextBtn: { backgroundColor: C.primary, borderRadius: 14, padding: 16, alignItems: 'center' },
-  nextBtnDim: { backgroundColor: C.btnDim },
-  nextBtnText: { color: C.text, fontSize: 16, fontWeight: '600' },
-
-  // Step 3 - 태그
-  tagGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  tagBtn: {
-    backgroundColor: C.tagBg, borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 9,
-    borderWidth: 1, borderColor: C.border,
+  nextBtnDisabled: { opacity: 0.4 },
+  nextBtnText: { color: Colors.textPrimary, fontSize: 16, fontWeight: '600' },
+  successContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    gap: 16,
   },
-  tagBtnSel: { backgroundColor: C.tagSel, borderColor: C.tagSel },
-  tagText: { color: C.text, fontSize: 13 },
-  addTagRow: { flexDirection: 'row', gap: 8, marginBottom: 28, alignItems: 'center' },
-  addTagInput: {
-    flex: 1, backgroundColor: C.card, borderRadius: 20,
-    paddingHorizontal: 16, paddingVertical: 10,
-    color: C.text, fontSize: 13, borderWidth: 1, borderColor: C.border,
+  successIcon: { fontSize: 64, color: Colors.primaryLight },
+  successTitle: { fontSize: 28, fontWeight: '700', color: Colors.textPrimary },
+  successSubtitle: {
+    fontSize: 15,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
   },
-  addTagBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: C.primary, justifyContent: 'center', alignItems: 'center',
+  successActions: { width: '100%', gap: 12, marginTop: 16 },
+  primaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.primary,
+    borderRadius: 14,
+    paddingVertical: 16,
   },
-  addTagBtnText: { color: C.text, fontSize: 22, lineHeight: 24 },
-
-  // Step 4 - 완료
-  completionContainer: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28, gap: 16 },
-  completionTitle: { color: C.text, fontSize: 26, fontWeight: '700' },
-  completionSub: { color: C.textSec, fontSize: 13, textAlign: 'center', marginBottom: 8 },
-  completionImage: { width: '100%', height: 200, borderRadius: 16, resizeMode: 'cover' },
-  completionTextCard: {
-    width: '100%', backgroundColor: C.card, borderRadius: 16, padding: 20,
-    borderWidth: 1, borderColor: C.border,
+  primaryBtnText: { color: Colors.textPrimary, fontSize: 16, fontWeight: '600' },
+  secondaryBtn: {
+    alignItems: 'center',
+    borderRadius: 14,
+    paddingVertical: 16,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
   },
-  completionText: { color: C.text, fontSize: 15, lineHeight: 24 },
-  completionBtns: { flexDirection: 'row', gap: 12, width: '100%', marginTop: 8 },
-  completionBtnOutline: {
-    flex: 1, borderWidth: 1, borderColor: C.primary, borderRadius: 14,
-    padding: 14, alignItems: 'center',
-  },
-  completionBtnOutlineText: { color: C.primary, fontSize: 14, fontWeight: '600' },
-  completionBtnFill: {
-    flex: 1, backgroundColor: C.primary, borderRadius: 14,
-    padding: 14, alignItems: 'center',
-  },
-  completionBtnFillText: { color: C.text, fontSize: 14, fontWeight: '600' },
+  secondaryBtnText: { color: Colors.textSecondary, fontSize: 16 },
 })
