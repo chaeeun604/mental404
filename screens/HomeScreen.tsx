@@ -46,14 +46,14 @@ async function markTutorialSeen(): Promise<void> {
 const { width } = Dimensions.get('window')
 const PLANET_SIZE = 290
 
-// 버블 위치 — 행성 중앙 포함 고르게 분포
+// 버블 위치 — 행성 위에 고르게 분포 (피그마 기준)
 // 컨테이너: 전체 너비 × 380px, 행성(290px) 중앙 배치
 const BUBBLE_POSITIONS: Array<{ top?: number; bottom?: number; left?: number; right?: number }> = [
-  { top: 18,  left: 14 },                          // 상단 왼쪽
-  { top: 78,  right: 14 },                         // 상단 오른쪽
-  { top: 168, left: Math.round(width / 2 - 65) },  // 중앙 (행성 위)
-  { top: 250, left: 14 },                          // 하단 왼쪽
-  { bottom: 18, right: 14 },                       // 하단 오른쪽
+  { top: 55,  left: Math.round(width * 0.15) },  // 상단 왼쪽
+  { top: 88,  left: Math.round(width * 0.52) },  // 상단 오른쪽
+  { top: 155, left: Math.round(width * 0.10) },  // 중단 왼쪽 (이미지)
+  { top: 200, left: Math.round(width * 0.53) },  // 중단 오른쪽
+  { top: 268, left: Math.round(width * 0.16) },  // 하단 왼쪽
 ]
 
 function truncate(text: string, max: number) {

@@ -7,6 +7,21 @@ export async function logView(userId: string, contentId: string, tagId?: string)
   if (error) throw error
 }
 
+export async function getViewLogsForPeriod(
+  userId: string,
+  start: Date,
+  end: Date
+): Promise<{ content_id: string; tag_id: string | null; viewed_at: string }[]> {
+  const { data, error } = await supabase
+    .from('view_logs')
+    .select('content_id, tag_id, viewed_at')
+    .eq('user_id', userId)
+    .gte('viewed_at', start.toISOString())
+    .lte('viewed_at', end.toISOString())
+  if (error) throw error
+  return data ?? []
+}
+
 export async function getViewStats(userId: string, days: number = 14) {
   const since = new Date()
   since.setDate(since.getDate() - days)

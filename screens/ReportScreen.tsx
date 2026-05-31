@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, ActivityIndicator, Platform,
@@ -9,7 +9,8 @@ import { Ionicons } from '@expo/vector-icons'
 import * as SecureStore from 'expo-secure-store'
 import { useAuth } from '../hooks/useAuth'
 import { useTags } from '../hooks/useTags'
-import { getAllContents, getViewCountForPeriod } from '../api/contents'
+import { getAllContents } from '../api/contents'
+import { getViewLogsForPeriod } from '../api/viewLogs'
 import { Colors } from '../constants/colors'
 import type { ScreenProps } from '../types/navigation'
 import type { ContentWithTags } from '../types/database'
@@ -21,42 +22,38 @@ interface Period {
   key: string
 }
 
-// 완료된 2주 구간만 생성 (end < 오늘)
+interface ViewLog {
+  content_id: string
+  tag_id: string | null
+  viewed_at: string
+}
+
 function generateCompletedPeriods(count = 10): Period[] {
   const periods: Period[] = []
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-
-  // 오늘 기준 직전 완료된 2주 구간부터
-  // 가장 최근 완료 구간: 14일 전 종료
   let periodEnd = new Date(today)
-  periodEnd.setDate(periodEnd.getDate() - 1) // 어제까지 = 최근 완료 구간의 끝
-
+  periodEnd.setDate(periodEnd.getDate() - 1)
   for (let i = 0; i < count; i++) {
     const end = new Date(periodEnd)
     end.setHours(23, 59, 59, 999)
     const start = new Date(end)
     start.setDate(start.getDate() - 13)
     start.setHours(0, 0, 0, 0)
-
     const fmt = (d: Date) => `${d.getMonth() + 1}월 ${d.getDate()}일`
     const key = `${start.toISOString().slice(0, 10)}_${end.toISOString().slice(0, 10)}`
-
     periods.push({ label: `${fmt(start)}~${fmt(end)}`, start, end, key })
-
-    // 이전 구간으로 이동
     periodEnd.setDate(periodEnd.getDate() - 14)
   }
-
   return periods
 }
 
 async function getViewedPeriods(): Promise<Set<string>> {
   try {
     const key = 'morbit_report_viewed'
-    let raw: string | null = null
-    if (Platform.OS === 'web') raw = localStorage.getItem(key)
-    else raw = await SecureStore.getItemAsync(key)
+    const raw = Platform.OS === 'web'
+      ? localStorage.getItem(key)
+      : await SecureStore.getItemAsync(key)
     return new Set(raw ? JSON.parse(raw) : [])
   } catch { return new Set() }
 }
@@ -77,14 +74,82 @@ const TAG_COLORS = [
   '#D4875C', '#8C5AD4', '#4DA6C4', '#C4A44D', '#6E8C4D',
 ]
 
+const DAY_NAMES   = ['월', '화', '수', '목', '금', '토', '일']
+const DAY_FULL    = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일']
+const TIME_BANDS  = ['새벽', '오전', '오후', '저녁', '밤']
+
+function getDayIdx(date: Date): number {
+  const d = date.getDay()
+  return d === 0 ? 6 : d - 1
+}
+
+function getTimeBandIdx(hour: number): number {
+  if (hour <= 5) return 0
+  if (hour <= 11) return 1
+  if (hour <= 17) return 2
+  if (hour <= 20) return 3
+  return 4
+}
+
+function computeDayCounts(logs: ViewLog[]): number[] {
+  const counts = new Array(7).fill(0)
+  for (const l of logs) counts[getDayIdx(new Date(l.viewed_at))]++
+  return counts
+}
+
+function computeTimeCounts(logs: ViewLog[]): number[] {
+  const counts = new Array(5).fill(0)
+  for (const l of logs) counts[getTimeBandIdx(new Date(l.viewed_at).getHours())]++
+  return counts
+}
+
+function filterByTag(logs: ViewLog[], contents: ContentWithTags[], tagId: string | null): ViewLog[] {
+  if (!tagId) return logs
+  return logs.filter(l => {
+    const c = contents.find(c => c.id === l.content_id)
+    return c?.content_tags?.some(ct => ct.tag_id === tagId)
+  })
+}
+
+function computeTagViewCounts(logs: ViewLog[], contents: ContentWithTags[]): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const l of logs) {
+    const c = contents.find(c => c.id === l.content_id)
+    if (!c) continue
+    for (const ct of c.content_tags ?? []) {
+      counts[ct.tag_id] = (counts[ct.tag_id] ?? 0) + 1
+    }
+  }
+  return counts
+}
+
+function getMostViewedContent(logs: ViewLog[], contents: ContentWithTags[]): ContentWithTags | null {
+  if (!logs.length) return null
+  const cnt: Record<string, number> = {}
+  for (const l of logs) cnt[l.content_id] = (cnt[l.content_id] ?? 0) + 1
+  const maxId = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0]?.[0]
+  return contents.find(c => c.id === maxId) ?? null
+}
+
+function peakDayTimeText(logs: ViewLog[]): string {
+  if (!logs.length) return '아직 꺼내본 기록이 없어요.'
+  const dc = computeDayCounts(logs)
+  const tc = computeTimeCounts(logs)
+  const pd = dc.indexOf(Math.max(...dc))
+  const pt = tc.indexOf(Math.max(...tc))
+  return `${DAY_FULL[pd]} ${TIME_BANDS[pt]}에 별을 가장 자주 꺼내봤어요.`
+}
+
 export default function ReportScreen({ navigation }: ScreenProps<'Report'>) {
   const { session } = useAuth()
   const { tags } = useTags(session?.user?.id ?? '')
-  const [contents, setContents]   = useState<ContentWithTags[]>([])
-  const [loading, setLoading]     = useState(true)
+  const [contents, setContents]         = useState<ContentWithTags[]>([])
+  const [loading, setLoading]           = useState(true)
   const [viewedPeriods, setViewedPeriods] = useState<Set<string>>(new Set())
   const [selectedPeriod, setSelectedPeriod] = useState<Period | null>(null)
-  const [periodViewCount, setPeriodViewCount] = useState(0)
+  const [periodViewLogs, setPeriodViewLogs] = useState<ViewLog[]>([])
+  const [filterTagId, setFilterTagId]   = useState<string | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   useEffect(() => {
     if (!session?.user?.id) return
@@ -96,115 +161,235 @@ export default function ReportScreen({ navigation }: ScreenProps<'Report'>) {
   }, [session?.user?.id])
 
   const periods = generateCompletedPeriods(6)
-
   const getPeriodContents = (p: Period) =>
     contents.filter(c => {
       const d = new Date(c.created_at)
       return d >= p.start && d <= p.end
     })
-
-  // 기간 있는 것만
   const activePeriods = periods.filter(p => getPeriodContents(p).length > 0)
 
   const openPeriod = async (period: Period) => {
     setSelectedPeriod(period)
+    setFilterTagId(null)
+    setPeriodViewLogs([])
     if (!viewedPeriods.has(period.key)) {
       await markPeriodViewed(period.key)
       setViewedPeriods(prev => new Set([...prev, period.key]))
     }
-    // 열람 횟수 (view_logs)
     if (session?.user?.id) {
-      const cnt = await getViewCountForPeriod(session.user.id, period.start, period.end)
-      setPeriodViewCount(cnt)
+      setDetailLoading(true)
+      try {
+        const logs = await getViewLogsForPeriod(session.user.id, period.start, period.end)
+        setPeriodViewLogs(logs)
+      } catch {}
+      finally { setDetailLoading(false) }
     }
   }
 
-  const getTagCount = (tagId: string, pc: ContentWithTags[]) =>
-    pc.filter(c => c.content_tags?.some(ct => ct.tag_id === tagId)).length
-
   // ── 상세 뷰 ───────────────────────────────────────────────
   if (selectedPeriod) {
-    const pc = getPeriodContents(selectedPeriod)
-    const total = pc.length
+    const pc        = getPeriodContents(selectedPeriod)
+    const total     = pc.length
+    const tagVCMap  = computeTagViewCounts(periodViewLogs, contents)
+    const totalViews = periodViewLogs.length
 
-    const tagCounts = tags
-      .map((t, i) => ({ tag: t, count: getTagCount(t.id, pc), color: TAG_COLORS[i % TAG_COLORS.length] }))
+    // 가장 자주 꺼내본 태그
+    const topViewedTagEntry = Object.entries(tagVCMap).sort((a, b) => b[1] - a[1])[0]
+    const topViewedTag = tags.find(t => t.id === topViewedTagEntry?.[0])
+
+    // 가장 많이 꺼내본 별
+    const mostViewed = getMostViewedContent(periodViewLogs, contents)
+
+    // 태그별 view count 정렬 (stacked bar + list)
+    const tagViewList = tags
+      .map((t, i) => ({ tag: t, count: tagVCMap[t.id] ?? 0, color: TAG_COLORS[i % TAG_COLORS.length] }))
       .filter(x => x.count > 0)
       .sort((a, b) => b.count - a.count)
 
-    const topTag = tagCounts[0]
+    // 총 태그 view count 합 (stacked bar용)
+    const totalTagViews = tagViewList.reduce((s, x) => s + x.count, 0)
+
+    // 요일/시간대 분석
+    const filteredLogs  = filterByTag(periodViewLogs, contents, filterTagId)
+    const dayCounts     = computeDayCounts(filteredLogs)
+    const timeCounts    = computeTimeCounts(filteredLogs)
+    const maxDay        = Math.max(...dayCounts, 1)
+    const maxTime       = Math.max(...timeCounts, 1)
+    const peakText      = peakDayTimeText(filteredLogs)
 
     return (
       <View style={styles.container}>
         <LinearGradient colors={['#0b1831', '#03060d']} style={StyleSheet.absoluteFill} />
         <SafeAreaView style={styles.safeArea}>
+          {/* 헤더 */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => setSelectedPeriod(null)} style={styles.backBtn}>
-              <Ionicons name="chevron-back" size={24} color={Colors.textSecondary} />
-            </TouchableOpacity>
+            <View style={{ width: 36 }} />
             <Text style={styles.headerTitle}>{selectedPeriod.label}</Text>
-            <View style={{ width: 40 }} />
+            <TouchableOpacity onPress={() => setSelectedPeriod(null)} style={styles.headerBtn}>
+              <Ionicons name="close" size={24} color={Colors.textSecondary} />
+            </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            {/* 핵심 지표 2개 */}
+          <ScrollView
+            contentContainerStyle={styles.detailContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {detailLoading && (
+              <ActivityIndicator color={Colors.primary} style={{ marginBottom: 8 }} />
+            )}
+
+            {/* ── 스탯 2카드 ── */}
             <View style={styles.statsRow}>
               <LinearGradient
-                colors={['#3B21FB', '#AEF1FF']}
-                start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }}
-                style={styles.statGradientCard}
+                colors={['#3B21FB', '#A5F0FF']}
+                start={{ x: 0.2, y: 0 }} end={{ x: 1, y: 1 }}
+                style={styles.statGradCard}
               >
-                <Text style={styles.statIcon}>✦</Text>
-                <Text style={styles.statNum}>{total}</Text>
-                <Text style={styles.statLabel}>저장한 별</Text>
+                <Text style={styles.statStarIcon}>✦</Text>
+                <Text style={styles.statNumLarge}>{total}</Text>
+                <Text style={styles.statSubLabel}>저장한 별의 개수</Text>
               </LinearGradient>
 
-              <View style={styles.statCard}>
-                <Text style={styles.statNum}>{periodViewCount}</Text>
-                <Text style={styles.statLabel}>스스로{'\n'}위로한 횟수</Text>
+              <View style={styles.statDarkCard}>
+                <View style={styles.statTagRow}>
+                  <Ionicons name="planet-outline" size={20} color="#acb5ff" />
+                  <Text style={styles.statTagName} numberOfLines={1}>
+                    {topViewedTag?.name ?? '—'}
+                  </Text>
+                </View>
+                <Text style={styles.statSubLabel}>가장 자주 꺼내본 태그</Text>
               </View>
             </View>
 
-            {/* 가장 많이 사용한 태그 */}
-            {topTag && (
-              <View style={styles.topTagCard}>
-                <Text style={styles.topTagLabel}>가장 많이 꺼내본 태그</Text>
-                <View style={[styles.topTagBadge, { backgroundColor: topTag.color + '33' }]}>
-                  <Text style={[styles.topTagName, { color: topTag.color }]}>{topTag.tag.name}</Text>
-                </View>
-                <Text style={styles.topTagCount}>{topTag.count}번</Text>
-              </View>
-            )}
-
-            {/* 격려 메시지 */}
-            {total > 0 && (
-              <View style={styles.encourageCard}>
-                <Text style={styles.encourageText}>
-                  이번 2주, {total}개의 별을 기록하고{'\n'}
-                  {periodViewCount}번이나 스스로를 위로했어요 ✦
+            {/* ── 가장 많이 꺼내본 별 ── */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>가장 많이 꺼내본 별</Text>
+              <View style={styles.card}>
+                <Text style={styles.mostViewedText} numberOfLines={3}>
+                  {mostViewed?.body ?? (mostViewed ? '이미지 기록' : '꺼내본 기록이 없어요.')}
                 </Text>
               </View>
-            )}
+            </View>
 
-            {/* 태그별 기록 수 */}
-            {tagCounts.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>태그별 기록</Text>
-                {tagCounts.map(({ tag, count, color }) => {
-                  const pct = total > 0 ? count / total : 0
-                  return (
-                    <View key={tag.id} style={styles.barRow}>
-                      <View style={[styles.tagDot, { backgroundColor: color }]} />
-                      <Text style={styles.barLabel} numberOfLines={1}>{tag.name}</Text>
-                      <View style={styles.barTrack}>
-                        <View style={[styles.barFill, { width: `${pct * 100}%` as any, backgroundColor: color }]} />
+            {/* ── 위로 횟수 + stacked bar ── */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                {`이번 2주는 ${totalViews}번이나\n스스로를 위로해냈어요!`}
+              </Text>
+              <View style={styles.card}>
+                {/* Stacked bar */}
+                {totalTagViews > 0 ? (
+                  <View style={styles.stackedBar}>
+                    {tagViewList.map(({ tag, count, color }) => (
+                      <View
+                        key={tag.id}
+                        style={[styles.stackedSegment, { flex: count, backgroundColor: color }]}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  <View style={[styles.stackedBar, { backgroundColor: Colors.surfaceBorder }]} />
+                )}
+
+                {/* 2-column tag list */}
+                <View style={styles.tagGrid}>
+                  {tagViewList.map((item, i) => (
+                    i % 2 === 0 ? (
+                      <View key={item.tag.id} style={styles.tagGridRow}>
+                        <View style={styles.tagGridItem}>
+                          <View style={[styles.tagDot, { backgroundColor: item.color }]} />
+                          <Text style={styles.tagGridName} numberOfLines={1}>{item.tag.name}</Text>
+                          <Text style={styles.tagGridCount}>{item.count}번</Text>
+                        </View>
+                        {tagViewList[i + 1] && (
+                          <View style={styles.tagGridItem}>
+                            <View style={[styles.tagDot, { backgroundColor: tagViewList[i + 1].color }]} />
+                            <Text style={styles.tagGridName} numberOfLines={1}>{tagViewList[i + 1].tag.name}</Text>
+                            <Text style={styles.tagGridCount}>{tagViewList[i + 1].count}번</Text>
+                          </View>
+                        )}
                       </View>
-                      <Text style={styles.barCount}>{count}</Text>
-                    </View>
-                  )
-                })}
+                    ) : null
+                  ))}
+                  {tagViewList.length === 0 && (
+                    <Text style={styles.emptyHint}>꺼내본 기록이 없어요.</Text>
+                  )}
+                </View>
               </View>
-            )}
+            </View>
+
+            {/* ── 요일 시간대 분석 ── */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{peakText}</Text>
+              <View style={[styles.card, { gap: 20 }]}>
+                {/* 필터 칩 */}
+                <View style={styles.filterChipRow}>
+                  <TouchableOpacity
+                    style={[styles.filterChip, filterTagId === null && styles.filterChipActive]}
+                    onPress={() => setFilterTagId(null)}
+                  >
+                    <Text style={[styles.filterChipText, filterTagId === null && styles.filterChipTextActive]}>
+                      전체
+                    </Text>
+                  </TouchableOpacity>
+                  {tags.map(tag => (
+                    <TouchableOpacity
+                      key={tag.id}
+                      style={[styles.filterChip, filterTagId === tag.id && styles.filterChipActive]}
+                      onPress={() => setFilterTagId(tag.id)}
+                    >
+                      <Text style={[styles.filterChipText, filterTagId === tag.id && styles.filterChipTextActive]}>
+                        {tag.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* 요일 바 차트 */}
+                <View style={styles.dayBarsRow}>
+                  {DAY_NAMES.map((name, i) => {
+                    const count = dayCounts[i]
+                    const isPeak = count === Math.max(...dayCounts) && count > 0
+                    const barH = maxDay > 0 ? Math.max(4, Math.round((count / maxDay) * 80)) : 4
+                    return (
+                      <View key={name} style={styles.dayBarCol}>
+                        <Text style={[styles.dayBarCount, isPeak && styles.dayBarCountPeak]}>
+                          {count}
+                        </Text>
+                        <View
+                          style={[
+                            styles.dayBar,
+                            { height: barH, backgroundColor: isPeak ? '#534dfc' : '#636887' },
+                          ]}
+                        />
+                        <Text style={[styles.dayBarLabel, isPeak && styles.dayBarLabelPeak]}>
+                          {name}
+                        </Text>
+                      </View>
+                    )
+                  })}
+                </View>
+
+                {/* 시간대 바 */}
+                <View style={styles.timeStrip}>
+                  {TIME_BANDS.map((band, i) => {
+                    const count = timeCounts[i]
+                    const fillPct = maxTime > 0 ? (count / maxTime) * 100 : 0
+                    return (
+                      <View key={band} style={styles.timeRow}>
+                        <Text style={styles.timeBandLabel}>{band}</Text>
+                        <View style={styles.timeTrack}>
+                          <View
+                            style={[styles.timeFill, { width: `${fillPct}%` as any }]}
+                          />
+                        </View>
+                        <Text style={styles.timeCount}>{count}</Text>
+                      </View>
+                    )
+                  })}
+                </View>
+              </View>
+            </View>
           </ScrollView>
         </SafeAreaView>
       </View>
@@ -217,11 +402,11 @@ export default function ReportScreen({ navigation }: ScreenProps<'Report'>) {
       <LinearGradient colors={['#0b1831', '#03060d']} style={StyleSheet.absoluteFill} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
             <Ionicons name="chevron-back" size={24} color={Colors.textSecondary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>분석 리포트</Text>
-          <View style={{ width: 40 }} />
+          <View style={{ width: 36 }} />
         </View>
 
         {loading ? (
@@ -234,9 +419,8 @@ export default function ReportScreen({ navigation }: ScreenProps<'Report'>) {
             <Text style={styles.emptySubtext}>2주 이상 기록하면 분석 리포트를 받을 수 있어요.</Text>
           </View>
         ) : (
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
             {activePeriods.map((period, i) => {
-              const count = getPeriodContents(period).length
               const isNewest = i === 0
               const isNew = isNewest && !viewedPeriods.has(period.key)
               return (
@@ -247,18 +431,14 @@ export default function ReportScreen({ navigation }: ScreenProps<'Report'>) {
                   activeOpacity={0.8}
                 >
                   <View style={styles.periodCardInner}>
-                    <View>
-                      <View style={styles.periodLabelRow}>
-                        <Text style={styles.periodLabel}>{period.label}</Text>
-                        {isNew && (
-                          <View style={styles.newBadge}>
-                            <Text style={styles.newBadgeText}>New</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.periodCount}>별 {count}개</Text>
+                    <View style={styles.periodLabelRow}>
+                      <Text style={styles.periodLabel}>{period.label}</Text>
+                      {isNew && (
+                        <View style={styles.newBadge}>
+                          <Text style={styles.newBadgeText}>New</Text>
+                        </View>
+                      )}
                     </View>
-                    <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
                   </View>
                 </TouchableOpacity>
               )
@@ -280,71 +460,238 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 12,
   },
-  backBtn:     { padding: 12 },
-  headerTitle: { fontSize: 18, fontFamily: 'Pretendard-SemiBold', color: '#fbfcfe' },
+  headerBtn:     { padding: 12 },
+  headerTitle:   { fontSize: 18, fontFamily: 'Pretendard-SemiBold', color: '#fbfcfe' },
   loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scrollContent: { padding: 20, gap: 14, paddingBottom: 40 },
+
+  // 목록 뷰
+  listContent: { padding: 20, gap: 12, paddingBottom: 40 },
   periodCard: {
     backgroundColor: '#2d3052',
     borderRadius: 15,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderWidth: 1,
     borderColor: Colors.surfaceBorder,
   },
   periodCardInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  periodLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  periodLabel: { fontSize: 14, color: '#fbfcfe', fontFamily: 'Pretendard-Medium' },
+  periodLabelRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  periodLabel:     { fontSize: 14, color: '#fbfcfe', fontFamily: 'Pretendard-Medium' },
   newBadge: {
     backgroundColor: Colors.primary,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  newBadgeText: { fontSize: 11, color: '#fbfcfe', fontFamily: 'Pretendard-Bold' },
-  periodCount:   { fontSize: 13, color: Colors.textSecondary, fontFamily: 'Pretendard-Regular' },
+  newBadgeText: { fontSize: 12, color: '#fbfcfe', fontFamily: 'Pretendard-Medium' },
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   emptyTitle:     { fontSize: 16, color: Colors.textSecondary, fontFamily: 'Pretendard-Medium' },
   emptySubtext:   { fontSize: 13, color: Colors.textTertiary, textAlign: 'center', fontFamily: 'Pretendard-Regular' },
 
-  // 상세 뷰
+  // 상세 뷰 공통
+  detailContent: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 120, gap: 32 },
+  section:       { gap: 12 },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: 'Pretendard-SemiBold',
+    color: '#fbfcfe',
+    letterSpacing: -0.18,
+    lineHeight: 26,
+  },
+  card: {
+    backgroundColor: '#272936',
+    borderRadius: 15,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    gap: 16,
+    overflow: 'hidden',
+  },
+
+  // 스탯 2카드
   statsRow: { flexDirection: 'row', gap: 12 },
-  statGradientCard: {
-    flex: 1, borderRadius: 16, padding: 20,
-    alignItems: 'center', gap: 4,
+  statGradCard: {
+    flex: 1,
+    borderRadius: 15,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    alignItems: 'center',
+    gap: 8,
   },
-  statCard: {
-    flex: 1, backgroundColor: '#2d3052', borderRadius: 16, padding: 20,
-    alignItems: 'center', gap: 4,
-    borderWidth: 1, borderColor: Colors.surfaceBorder,
+  statDarkCard: {
+    flex: 1,
+    backgroundColor: '#272936',
+    borderRadius: 15,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    alignItems: 'center',
+    gap: 8,
   },
-  statIcon: { fontSize: 20, color: '#fbfcfe' },
-  statNum:  { fontSize: 32, fontFamily: 'Pretendard-Bold', color: '#fbfcfe' },
-  statLabel: { fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'center', fontFamily: 'Pretendard-Regular' },
-  topTagCard: {
-    backgroundColor: '#2d3052', borderRadius: 16, padding: 20,
-    borderWidth: 1, borderColor: Colors.surfaceBorder,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+  statStarIcon:   { fontSize: 22, color: '#fbfcfe' },
+  statNumLarge: {
+    fontSize: 18,
+    fontFamily: 'Pretendard-SemiBold',
+    color: '#fbfcfe',
+    lineHeight: 25,
   },
-  topTagLabel: { fontSize: 13, color: Colors.textTertiary, fontFamily: 'Pretendard-Regular' },
-  topTagBadge: { flex: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, alignItems: 'center' },
-  topTagName:  { fontSize: 13, fontFamily: 'Pretendard-SemiBold' },
-  topTagCount: { fontSize: 14, color: '#fbfcfe', fontFamily: 'Pretendard-SemiBold' },
-  encourageCard: {
-    backgroundColor: '#2d3052', borderRadius: 16, padding: 20,
-    borderWidth: 1, borderColor: Colors.primary + '44',
+  statSubLabel: {
+    fontSize: 12,
+    fontFamily: 'Pretendard-Regular',
+    color: 'rgba(255,255,255,0.75)',
+    textAlign: 'center',
   },
-  encourageText: {
-    fontSize: 17, fontFamily: 'Pretendard-SemiBold', color: '#fbfcfe',
-    lineHeight: 26, letterSpacing: -0.2,
+  statTagRow:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statTagName: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-SemiBold',
+    color: '#fbfcfe',
+    flex: 1,
+    textAlign: 'center',
   },
-  section:      { gap: 12 },
-  sectionTitle: { fontSize: 14, color: Colors.textSecondary, fontFamily: 'Pretendard-Medium' },
-  barRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  tagDot: { width: 8, height: 8, borderRadius: 4 },
-  barLabel: { fontSize: 12, color: Colors.textSecondary, width: 90, fontFamily: 'Pretendard-Regular' },
-  barTrack: {
-    flex: 1, height: 6, backgroundColor: Colors.surfaceBorder, borderRadius: 3, overflow: 'hidden',
+
+  // 가장 많이 꺼내본 별
+  mostViewedText: {
+    fontSize: 14,
+    fontFamily: 'Pretendard-Regular',
+    color: '#fbfcfe',
+    lineHeight: 22,
   },
-  barFill:  { height: '100%', borderRadius: 3 },
-  barCount: { fontSize: 12, color: Colors.textTertiary, width: 24, textAlign: 'right', fontFamily: 'Pretendard-Regular' },
+
+  // Stacked bar
+  stackedBar: {
+    flexDirection: 'row',
+    height: 14,
+    borderRadius: 10,
+    gap: 4,
+    overflow: 'hidden',
+  },
+  stackedSegment: {
+    height: 14,
+    borderRadius: 10,
+  },
+
+  // Tag 2-column grid
+  tagGrid:    { gap: 8 },
+  tagGridRow: { flexDirection: 'row', gap: 12 },
+  tagGridItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  tagDot:      { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
+  tagGridName: {
+    flex: 1,
+    fontSize: 12,
+    color: '#fbfcfe',
+    fontFamily: 'Pretendard-Regular',
+  },
+  tagGridCount: {
+    fontSize: 12,
+    color: '#9a9ab3',
+    fontFamily: 'Pretendard-Regular',
+    width: 24,
+    textAlign: 'right',
+  },
+  emptyHint: {
+    fontSize: 13,
+    color: Colors.textTertiary,
+    fontFamily: 'Pretendard-Regular',
+  },
+
+  // 필터 칩
+  filterChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filterChip: {
+    borderWidth: 1,
+    borderColor: '#636887',
+    borderRadius: 999,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+  },
+  filterChipActive: {
+    backgroundColor: '#534dfc',
+    borderColor: '#534dfc',
+  },
+  filterChipText: {
+    fontSize: 12,
+    color: '#9a9ab3',
+    fontFamily: 'Pretendard-Regular',
+  },
+  filterChipTextActive: {
+    color: '#fbfcfe',
+    fontFamily: 'Pretendard-Medium',
+  },
+
+  // 요일 바 차트
+  dayBarsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    gap: 4,
+  },
+  dayBarCol: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 6,
+  },
+  dayBarCount: {
+    fontSize: 10,
+    color: '#9a9ab3',
+    fontFamily: 'Pretendard-Regular',
+  },
+  dayBarCountPeak: {
+    color: '#fbfcfe',
+    fontFamily: 'Pretendard-SemiBold',
+  },
+  dayBar: {
+    width: '100%',
+    borderRadius: 8,
+    minHeight: 4,
+  },
+  dayBarLabel: {
+    fontSize: 11,
+    color: '#9a9ab3',
+    fontFamily: 'Pretendard-Regular',
+  },
+  dayBarLabelPeak: {
+    color: '#fbfcfe',
+    fontFamily: 'Pretendard-Medium',
+  },
+
+  // 시간대 바
+  timeStrip: { gap: 8 },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+    height: 12,
+  },
+  timeBandLabel: {
+    fontSize: 12,
+    color: '#fbfcfe',
+    fontFamily: 'Pretendard-Regular',
+    width: 28,
+  },
+  timeTrack: {
+    flex: 1,
+    height: 10,
+    backgroundColor: '#2d3052',
+    borderRadius: 6,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  timeFill: {
+    position: 'absolute',
+    left: 0, top: 0, bottom: 0,
+    backgroundColor: '#534dfc',
+    borderRadius: 6,
+  },
+  timeCount: {
+    fontSize: 12,
+    color: '#fbfcfe',
+    fontFamily: 'Pretendard-Medium',
+    width: 16,
+    textAlign: 'center',
+  },
 })
