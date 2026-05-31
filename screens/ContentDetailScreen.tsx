@@ -154,11 +154,9 @@ export default function ContentDetailScreen({
               </>
             ) : (
               <>
-                {content.type === 'text' && (
-                  <TouchableOpacity onPress={() => setEditing(true)} style={styles.headerBtn}>
-                    <Ionicons name="pencil-outline" size={20} color={Colors.textSecondary} />
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity onPress={() => setEditing(true)} style={styles.headerBtn}>
+                  <Ionicons name="pencil-outline" size={20} color={Colors.textSecondary} />
+                </TouchableOpacity>
                 <TouchableOpacity onPress={handleDelete} style={styles.headerBtn}>
                   <Ionicons name="trash-outline" size={20} color={Colors.textTertiary} />
                 </TouchableOpacity>

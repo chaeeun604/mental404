@@ -1,17 +1,46 @@
 import { useEffect, useState, useRef } from 'react'
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Animated, ScrollView, ActivityIndicator, Image,
+  Animated, ScrollView, ActivityIndicator, Image, Platform,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
+import * as SecureStore from 'expo-secure-store'
 import { useAuth } from '../hooks/useAuth'
-import { getDailyRecommendation } from '../api/contents'
+import { getDailyRecommendation, getContentById } from '../api/contents'
 import { logView } from '../api/viewLogs'
 import { Colors } from '../constants/colors'
 import type { ScreenProps } from '../types/navigation'
 import type { ContentWithTags } from '../types/database'
+
+const DAILY_STAR_KEY_PREFIX = 'morbit_daily_star_'
+
+function getTodayStr(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+async function getCachedDailyStar(userId: string): Promise<string | null> {
+  try {
+    const key = DAILY_STAR_KEY_PREFIX + userId
+    const raw = Platform.OS === 'web'
+      ? localStorage.getItem(key)
+      : await SecureStore.getItemAsync(key)
+    if (!raw) return null
+    const { date, contentId } = JSON.parse(raw)
+    return date === getTodayStr() ? contentId : null
+  } catch { return null }
+}
+
+async function cacheDailyStar(userId: string, contentId: string): Promise<void> {
+  try {
+    const key = DAILY_STAR_KEY_PREFIX + userId
+    const value = JSON.stringify({ date: getTodayStr(), contentId })
+    if (Platform.OS === 'web') localStorage.setItem(key, value)
+    else await SecureStore.setItemAsync(key, value)
+  } catch {}
+}
 
 export default function ShootingStarScreen({ navigation }: ScreenProps<'ShootingStar'>) {
   const { session } = useAuth()
@@ -61,10 +90,22 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
       ]),
     ]).start(async () => {
       try {
-        const result = await getDailyRecommendation(session?.user?.id ?? '')
+        const userId = session?.user?.id ?? ''
+        let result: ContentWithTags | null = null
+
+        // 오늘 이미 뽑은 별이 있으면 재사용
+        const cachedId = await getCachedDailyStar(userId)
+        if (cachedId) {
+          result = await getContentById(cachedId)
+        }
+        if (!result) {
+          result = await getDailyRecommendation(userId)
+          if (result) await cacheDailyStar(userId, result.id)
+        }
+
         setContent(result)
-        if (result && session?.user?.id) {
-          await logView(session.user.id, result.id).catch(() => {})
+        if (result && userId) {
+          await logView(userId, result.id).catch(() => {})
         }
       } catch {
         setContent(null)
@@ -88,10 +129,15 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
       <LinearGradient colors={['#080711', '#101640', '#080711']} style={StyleSheet.absoluteFill} />
 
       <SafeAreaView style={styles.safeArea}>
-        {/* 상단 닫기 */}
-        <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-down" size={28} color={Colors.textSecondary} />
-        </TouchableOpacity>
+        {/* 상단 헤더: 닫기(좌) + 열린 날짜(우) */}
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-down" size={28} color={Colors.textSecondary} />
+          </TouchableOpacity>
+          <Text style={styles.headerDate}>
+            {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
+          </Text>
+        </View>
 
         {/* 타이틀 */}
         <View style={styles.titleSection}>
@@ -205,7 +251,22 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
 const styles = StyleSheet.create({
   container:    { flex: 1, backgroundColor: '#080711' },
   safeArea:     { flex: 1 },
-  closeBtn:     { alignSelf: 'center', padding: 14, marginTop: 4 },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  closeBtn:     { padding: 14 },
+  headerDate: {
+    fontSize: 13,
+    fontFamily: 'Pretendard-Regular',
+    color: '#636887',
+    paddingRight: 16,
+    letterSpacing: 0.2,
+  },
   titleSection: { alignItems: 'center', paddingHorizontal: 32, paddingBottom: 24, gap: 8 },
   title: {
     fontSize: 24,

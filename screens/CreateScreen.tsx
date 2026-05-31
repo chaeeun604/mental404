@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, ScrollView, Image, ActivityIndicator, Platform,
+  Alert, ScrollView, Image, ActivityIndicator, Platform, Modal,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -34,6 +34,7 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
   const [savedContent, setSavedContent] = useState<ContentRow | null>(null)
   const [newTagInput, setNewTagInput] = useState('')
   const [addingTag, setAddingTag]     = useState(false)
+  const [showExitModal, setShowExitModal] = useState(false)
 
   const customTags = tags.filter(t => !t.is_default)
   const remainingCustom = MAX_CUSTOM_TAGS - customTags.length
@@ -101,16 +102,7 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
       else navigation.replace('Home')
       return
     }
-    Alert.alert('변경사항 폐기', '작성 중인 내용이 모두 사라져요.\n그래도 나가시겠어요?', [
-      { text: '계속 작성', style: 'cancel' },
-      {
-        text: '폐기', style: 'destructive',
-        onPress: () => {
-          if (navigation.canGoBack()) navigation.goBack()
-          else navigation.replace('Home')
-        },
-      },
-    ])
+    setShowExitModal(true)
   }
 
   const goBack = () => {
@@ -192,6 +184,36 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#050928', '#080711']} style={StyleSheet.absoluteFill} />
+
+      <Modal visible={showExitModal} transparent animationType="fade">
+        <View style={styles.exitOverlay}>
+          <View style={styles.exitCard}>
+            <Text style={styles.exitTitle}>기록을 그만 쓸까요?</Text>
+            <Text style={styles.exitBody}>{'작성 중인 내용이 모두\n사라져요.'}</Text>
+            <View style={styles.exitBtnRow}>
+              <TouchableOpacity
+                style={styles.exitCancelBtn}
+                onPress={() => setShowExitModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.exitCancelText}>계속 작성</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.exitConfirmBtn}
+                onPress={() => {
+                  setShowExitModal(false)
+                  if (navigation.canGoBack()) navigation.goBack()
+                  else navigation.replace('Home')
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.exitConfirmText}>폐기</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <SafeAreaView style={styles.safeArea}>
 
         {/* 진행 바 (전체 너비 얇은 세그먼트) */}
@@ -657,6 +679,72 @@ const styles = StyleSheet.create({
   nextBtnText: {
     color: '#fbfcfe',
     fontSize: 16,
+    fontFamily: 'Pretendard-SemiBold',
+  },
+
+  // 나가기 확인 모달
+  exitOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.78)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  exitCard: {
+    backgroundColor: '#1a1d2e',
+    borderRadius: 20,
+    padding: 28,
+    width: '100%',
+    gap: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  exitTitle: {
+    fontSize: 18,
+    fontFamily: 'Pretendard-SemiBold',
+    color: '#fbfcfe',
+    textAlign: 'center',
+  },
+  exitBody: {
+    fontSize: 14,
+    color: '#9A9FB3',
+    lineHeight: 22,
+    textAlign: 'center',
+    fontFamily: 'Pretendard-Regular',
+  },
+  exitBtnRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    marginTop: 8,
+  },
+  exitCancelBtn: {
+    flex: 1,
+    height: 50,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  exitConfirmBtn: {
+    flex: 1,
+    height: 50,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E03E3E',
+  },
+  exitCancelText: {
+    fontSize: 15,
+    color: '#fbfcfe',
+    fontFamily: 'Pretendard-Medium',
+  },
+  exitConfirmText: {
+    fontSize: 15,
+    color: '#fbfcfe',
     fontFamily: 'Pretendard-SemiBold',
   },
 
