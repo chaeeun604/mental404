@@ -12,6 +12,7 @@ import { useTags } from '../hooks/useTags'
 import { getAllContents } from '../api/contents'
 import { getViewLogsForPeriod } from '../api/viewLogs'
 import { Colors } from '../constants/colors'
+import PlanetGraphic from '../components/PlanetGraphic'
 import type { ScreenProps } from '../types/navigation'
 import type { ContentWithTags } from '../types/database'
 
@@ -196,6 +197,7 @@ export default function ReportScreen({ navigation }: ScreenProps<'Report'>) {
     // 가장 자주 꺼내본 태그
     const topViewedTagEntry = Object.entries(tagVCMap).sort((a, b) => b[1] - a[1])[0]
     const topViewedTag = tags.find(t => t.id === topViewedTagEntry?.[0])
+    const topViewedTagIndex = tags.findIndex(t => t.id === topViewedTagEntry?.[0])
 
     // 가장 많이 꺼내본 별
     const mostViewed = getMostViewedContent(periodViewLogs, contents)
@@ -251,12 +253,15 @@ export default function ReportScreen({ navigation }: ScreenProps<'Report'>) {
               </LinearGradient>
 
               <View style={styles.statDarkCard}>
-                <View style={styles.statTagRow}>
-                  <Ionicons name="planet-outline" size={20} color="#acb5ff" />
-                  <Text style={styles.statTagName} numberOfLines={1}>
-                    {topViewedTag?.name ?? '—'}
-                  </Text>
-                </View>
+                {topViewedTagIndex >= 0 && (
+                  <View style={styles.statTagBgPlanet}>
+                    <PlanetGraphic tagIndex={topViewedTagIndex} size={80} />
+                  </View>
+                )}
+                <PlanetGraphic tagIndex={topViewedTagIndex >= 0 ? topViewedTagIndex : 0} size={36} />
+                <Text style={styles.statTagName} numberOfLines={1}>
+                  {topViewedTag?.name ?? '—'}
+                </Text>
                 <Text style={styles.statSubLabel}>가장 자주 꺼내본 태그</Text>
               </View>
             </View>
@@ -525,6 +530,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     alignItems: 'center',
     gap: 8,
+    overflow: 'hidden',
   },
   statStarIcon:   { fontSize: 22, color: '#fbfcfe' },
   statNumLarge: {
@@ -540,11 +546,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   statTagRow:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statTagBgPlanet: {
+    position: 'absolute',
+    bottom: -16,
+    right: -16,
+    opacity: 0.18,
+  },
   statTagName: {
     fontSize: 14,
     fontFamily: 'Pretendard-SemiBold',
     color: '#fbfcfe',
-    flex: 1,
     textAlign: 'center',
   },
 

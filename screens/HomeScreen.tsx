@@ -12,6 +12,7 @@ import {
   Platform,
   Modal,
   PanResponder,
+  Animated,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -21,6 +22,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useTags } from '../hooks/useTags'
 import { getAllContents } from '../api/contents'
 import PlanetGraphic from '../components/PlanetGraphic'
+import StarField from '../components/StarField'
 import ContentBubble from '../components/ContentBubble'
 import GNB from '../components/GNB'
 import { Colors } from '../constants/colors'
@@ -103,23 +105,49 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     ? contents.filter((c) => c.content_tags?.some((ct) => ct.tag_id === selectedTagId))
     : contents
 
-  const goLeft = () => {
-    if (tags.length === 0) return
-    setCurrentTagIdx((prev) => (prev - 1 + tags.length) % tags.length)
+  const planetX = useRef(new Animated.Value(0)).current
+  const planetOpacity = useRef(new Animated.Value(1)).current
+
+  const switchPlanet = (direction: 'left' | 'right') => {
+    if (tags.length <= 1) return
+    const outX = direction === 'right' ? -width * 0.4 : width * 0.4
+    const inX  = direction === 'right' ?  width * 0.4 : -width * 0.4
+
+    Animated.parallel([
+      Animated.timing(planetX,      { toValue: outX, duration: 150, useNativeDriver: true }),
+      Animated.timing(planetOpacity, { toValue: 0,    duration: 150, useNativeDriver: true }),
+    ]).start(() => {
+      setCurrentTagIdx(prev =>
+        direction === 'right'
+          ? (prev + 1) % tags.length
+          : (prev - 1 + tags.length) % tags.length
+      )
+      planetX.setValue(inX)
+      Animated.parallel([
+        Animated.timing(planetX,      { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(planetOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]).start()
+    })
   }
 
-  const goRight = () => {
-    if (tags.length === 0) return
-    setCurrentTagIdx((prev) => (prev + 1) % tags.length)
-  }
+  const goLeft  = () => switchPlanet('left')
+  const goRight = () => switchPlanet('right')
+
+  // PanResponder는 mount 시 한 번만 생성되므로 ref로 최신 함수 유지
+  const goLeftRef  = useRef(goLeft)
+  const goRightRef = useRef(goRight)
+  useEffect(() => {
+    goLeftRef.current  = goLeft
+    goRightRef.current = goRight
+  })
 
   // 스와이프 제스처 (행성 영역)
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 15 && Math.abs(g.dy) < 40,
       onPanResponderRelease: (_, g) => {
-        if (g.dx < -50) goRight()
-        else if (g.dx > 50) goLeft()
+        if (g.dx < -50) goRightRef.current()
+        else if (g.dx > 50) goLeftRef.current()
       },
     })
   ).current
@@ -159,7 +187,10 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
         {/* Planet container — planet centered, bubbles float around it, swipe to change tag */}
         <View style={styles.planetContainer} {...panResponder.panHandlers}>
           {/* Centered planet */}
-          <View style={styles.planetCenter}>
+          <Animated.View style={[styles.planetCenter, {
+            transform: [{ translateX: planetX }],
+            opacity: planetOpacity,
+          }]}>
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={() => {
@@ -170,7 +201,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
             >
               <PlanetGraphic tagIndex={currentTagIdx} size={PLANET_SIZE} />
             </TouchableOpacity>
-          </View>
+          </Animated.View>
 
           {/* Floating content bubbles */}
           {shownCards.map((item, idx) => (
@@ -263,11 +294,6 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   }
 
   const renderListView = () => {
-    // 현재 선택 태그 기록 수
-    const tagItemCount = selectedTagId
-      ? contents.filter(c => c.content_tags?.some(ct => ct.tag_id === selectedTagId)).length
-      : 0
-
     return (
       <View style={styles.flex}>
         {/* 태그 칩 (태그별 개수 표시, 기본 첫 번째 선택) */}
@@ -299,10 +325,8 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           })}
         </ScrollView>
 
-        {/* 선택 태그 기록 수 */}
-        {selectedTagId && (
-          <Text style={styles.totalCount}>{tagItemCount}개의 별</Text>
-        )}
+        {/* 기록 수 — 항상 표시 */}
+        <Text style={styles.totalCount}>{listContents.length}개의 별</Text>
 
         <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
           {contentsLoading ? (
@@ -326,9 +350,8 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
 
   return (
     <LinearGradient colors={Colors.bgHomeGradient} style={styles.flex}>
-      {/* 우주 배경 장식 — 좌우 행성 블러 */}
-      <View style={styles.bgPlanetLeft} />
-      <View style={styles.bgPlanetRight} />
+      {/* 별 배경 */}
+      <StarField />
 
       {/* First-visit tutorial overlay */}
       <Modal visible={showTutorial} transparent animationType="fade">
@@ -395,27 +418,6 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   safeArea: { flex: 1 },
-  // 배경 장식 행성 (Figma: 좌우 부분 노출 행성)
-  bgPlanetLeft: {
-    position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: '#3B21FB',
-    opacity: 0.08,
-    left: -120,
-    top: 240,
-  },
-  bgPlanetRight: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: '#4d3aff',
-    opacity: 0.07,
-    right: -100,
-    top: 300,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

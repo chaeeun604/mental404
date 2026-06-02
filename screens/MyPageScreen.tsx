@@ -8,6 +8,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '../hooks/useAuth'
@@ -63,7 +64,7 @@ export default function MyPageScreen({ navigation }: ScreenProps<'MyPage'>) {
   }
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={['#101640', '#080711']} style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -138,12 +139,12 @@ export default function MyPageScreen({ navigation }: ScreenProps<'MyPage'>) {
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
-    </View>
+    </LinearGradient>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bgMain },
+  container: { flex: 1 },
   safeArea: { flex: 1 },
   header: {
     flexDirection: 'row',
@@ -154,7 +155,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 17,
-    fontWeight: '600',
+    fontFamily: 'Pretendard-SemiBold',
     color: Colors.textPrimary,
   },
   scrollContent: { padding: 20, gap: 16, paddingBottom: 40 },
@@ -170,7 +171,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.surfaceBorder,
     marginBottom: 8,
   },
-  username: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  username: {
+    fontSize: 20,
+    fontFamily: 'Pretendard-Bold',
+    color: Colors.textPrimary,
+  },
   section: {
     backgroundColor: Colors.surface,
     borderRadius: 16,
@@ -185,8 +190,16 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   settingInfo: { flex: 1, gap: 3 },
-  settingLabel: { fontSize: 15, color: Colors.textPrimary },
-  settingDesc: { fontSize: 12, color: Colors.textTertiary },
+  settingLabel: {
+    fontSize: 15,
+    fontFamily: 'Pretendard-Medium',
+    color: Colors.textPrimary,
+  },
+  settingDesc: {
+    fontSize: 12,
+    fontFamily: 'Pretendard-Regular',
+    color: Colors.textTertiary,
+  },
   divider: { height: 1, backgroundColor: Colors.surfaceBorder },
   linkRow: {
     flexDirection: 'row',
@@ -194,7 +207,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 16,
   },
-  linkLabel: { fontSize: 15, color: Colors.textPrimary },
+  linkLabel: {
+    fontSize: 15,
+    fontFamily: 'Pretendard-Medium',
+    color: Colors.textPrimary,
+  },
   logoutBtn: {
     backgroundColor: Colors.surface,
     borderRadius: 14,

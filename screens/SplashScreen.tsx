@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { View, Animated, StyleSheet } from 'react-native'
+import { Animated, StyleSheet } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useAuth } from '../hooks/useAuth'
 import { getAllContents } from '../api/contents'
 import PixelLogo from '../components/PixelLogo'
@@ -39,18 +40,17 @@ export default function SplashScreen({ navigation }: ScreenProps<'Splash'>) {
   }, [authLoading, session])
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={['#050928', '#080711']} style={styles.container}>
       <Animated.View style={{ opacity, transform: [{ scale }] }}>
         <PixelLogo dotSize={5.538} gap={1.107} letterSpacing={4} />
       </Animated.View>
-    </View>
+    </LinearGradient>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000845',
     alignItems: 'center',
     justifyContent: 'center',
   },

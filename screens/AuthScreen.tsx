@@ -7,6 +7,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { useAuth } from '../hooks/useAuth'
 import { getAllContents } from '../api/contents'
+import { supabase } from '../lib/supabase'
 import PixelLogo from '../components/PixelLogo'
 import ConstellationGraphic from '../components/ConstellationGraphic'
 import type { ScreenProps } from '../types/navigation'
@@ -39,11 +40,12 @@ function getErrorMessage(e: any): string {
 }
 
 export default function AuthScreen({ navigation }: ScreenProps<'Auth'>) {
-  const { signIn, signUp } = useAuth()
+  const { signIn, signUp, signInWithKakao } = useAuth()
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
   const [loading, setLoading]   = useState(false)
+  const [kakaoLoading, setKakaoLoading] = useState(false)
 
   // 입장 애니메이션 — 스플래시에서 MORBIT이 올라와서 자리에 안착
   const isEntrance = useRef(_firstAuthMount)
@@ -70,6 +72,22 @@ export default function AuthScreen({ navigation }: ScreenProps<'Auth'>) {
       useNativeDriver: true,
     }).start()
   }, [])
+
+  const handleKakao = async () => {
+    setKakaoLoading(true)
+    try {
+      await signInWithKakao()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { getAllContents } = await import('../api/contents')
+      const contents = await getAllContents(user.id)
+      navigation.replace(contents.length === 0 ? 'Onboarding' : 'Home')
+    } catch (e: any) {
+      Alert.alert('카카오 로그인 오류', e?.message ?? '다시 시도해주세요.')
+    } finally {
+      setKakaoLoading(false)
+    }
+  }
 
   const handleSubmit = async () => {
     const emailTrimmed = email.trim()
@@ -173,6 +191,30 @@ export default function AuthScreen({ navigation }: ScreenProps<'Auth'>) {
                   {isSignUp ? '이미 계정이 있어요' : '계정이 없으신가요?  시작하기'}
                 </Text>
               </TouchableOpacity>
+
+              {/* 구분선 */}
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>또는</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              {/* 카카오 로그인 */}
+              <TouchableOpacity
+                style={[styles.kakaoBtn, kakaoLoading && styles.disabled]}
+                onPress={handleKakao}
+                disabled={kakaoLoading}
+                activeOpacity={0.85}
+              >
+                {kakaoLoading ? (
+                  <ActivityIndicator color="#000000" />
+                ) : (
+                  <>
+                    <Text style={styles.kakaoIcon}>💬</Text>
+                    <Text style={styles.kakaoText}>카카오로 시작하기</Text>
+                  </>
+                )}
+              </TouchableOpacity>
             </View>
           </Animated.View>
         </ScrollView>
@@ -227,4 +269,36 @@ const styles = StyleSheet.create({
   submitText:  { color: '#fbfcfe', fontSize: 16, fontFamily: 'Pretendard-SemiBold' },
   toggleWrap:  { alignItems: 'center', paddingVertical: 14 },
   toggleText:  { fontSize: 13, color: '#acb5ff', fontFamily: 'Pretendard-Medium' },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#2D3052',
+  },
+  dividerText: {
+    fontSize: 12,
+    color: '#636887',
+    fontFamily: 'Pretendard-Regular',
+  },
+  kakaoBtn: {
+    backgroundColor: '#FEE500',
+    borderRadius: 14,
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  kakaoIcon: { fontSize: 20 },
+  kakaoText: {
+    fontSize: 16,
+    color: '#000000',
+    fontFamily: 'Pretendard-SemiBold',
+  },
 })

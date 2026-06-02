@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Session, AuthChangeEvent } from '@supabase/supabase-js'
+import * as WebBrowser from 'expo-web-browser'
+import * as Linking from 'expo-linking'
 import { supabase } from '../lib/supabase'
 
 export function useAuth() {
@@ -36,5 +38,33 @@ export function useAuth() {
     if (error) throw error
   }
 
-  return { session, loading, signUp, signIn, signOut }
+  const signInWithKakao = async () => {
+    const redirectTo = Linking.createURL('auth-callback')
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'kakao',
+      options: { redirectTo, skipBrowserRedirect: true },
+    })
+    if (error || !data.url) throw error ?? new Error('OAuth URL 생성 실패')
+
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo)
+    if (result.type !== 'success') return
+
+    // Supabase는 토큰을 hash fragment 또는 query string으로 전달
+    const raw = result.url
+    const fragment = raw.includes('#') ? raw.split('#')[1] : raw.split('?')[1]
+    const params = new URLSearchParams(fragment ?? '')
+    const accessToken  = params.get('access_token')
+    const refreshToken = params.get('refresh_token')
+
+    if (!accessToken || !refreshToken) throw new Error('토큰을 받아오지 못했어요.')
+
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    })
+    if (sessionError) throw sessionError
+  }
+
+  return { session, loading, signUp, signIn, signOut, signInWithKakao }
 }

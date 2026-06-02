@@ -1,4 +1,5 @@
-import { View, TouchableOpacity, StyleSheet } from 'react-native'
+import { useRef, useEffect } from 'react'
+import { View, TouchableOpacity, StyleSheet, Animated } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -13,8 +14,44 @@ interface GNBProps {
   onCreate: () => void
 }
 
+// pill 너비 112, indicator 너비 48
+// graphic: left=4  → translateX=4
+// list:    right=4 → translateX=112-48-4=60
+const INDICATOR_X_GRAPHIC = 4
+const INDICATOR_X_LIST    = 60
+
 export default function GNB({ activeTab, onReport, onGraphic, onList, onCreate }: GNBProps) {
   const insets = useSafeAreaInsets()
+
+  const indicatorX       = useRef(new Animated.Value(
+    activeTab === 'list' ? INDICATOR_X_LIST : INDICATOR_X_GRAPHIC
+  )).current
+  const indicatorOpacity = useRef(new Animated.Value(
+    activeTab === 'report' ? 0 : 1
+  )).current
+
+  useEffect(() => {
+    if (activeTab === 'report') {
+      Animated.timing(indicatorOpacity, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }).start()
+    } else {
+      Animated.parallel([
+        Animated.timing(indicatorOpacity, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(indicatorX, {
+          toValue: activeTab === 'graphic' ? INDICATOR_X_GRAPHIC : INDICATOR_X_LIST,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start()
+    }
+  }, [activeTab])
 
   return (
     <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 20) }]}>
@@ -30,8 +67,10 @@ export default function GNB({ activeTab, onReport, onGraphic, onList, onCreate }
       {/* Graphic / List toggle pill */}
       <View style={styles.pill}>
         {/* Sliding active indicator */}
-        {activeTab === 'graphic' && <View style={[styles.pillIndicator, { left: 4 }]} />}
-        {activeTab === 'list'    && <View style={[styles.pillIndicator, { right: 4 }]} />}
+        <Animated.View style={[styles.pillIndicator, {
+          opacity: indicatorOpacity,
+          transform: [{ translateX: indicatorX }],
+        }]} />
 
         <TouchableOpacity style={styles.pillHalf} onPress={onGraphic} activeOpacity={0.8}>
           <Ionicons
@@ -94,6 +133,7 @@ const styles = StyleSheet.create({
   pillIndicator: {
     position: 'absolute',
     top: 4,
+    left: 0,
     width: 48,
     height: 48,
     borderRadius: 24,

@@ -10,6 +10,7 @@ import {
   Image,
   TextInput,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { getContentById, deleteContent, updateContent } from '../api/contents'
@@ -99,27 +100,27 @@ export default function ContentDetailScreen({
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <LinearGradient colors={['#101640', '#080711']} style={styles.loadingContainer}>
         <ActivityIndicator color={Colors.primary} />
-      </View>
+      </LinearGradient>
     )
   }
 
   if (!content) {
     return (
-      <View style={styles.container}>
+      <LinearGradient colors={['#101640', '#080711']} style={styles.container}>
         <SafeAreaView>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Ionicons name="chevron-back" size={24} color={Colors.textSecondary} />
           </TouchableOpacity>
           <Text style={styles.emptyText}>기억을 찾을 수 없어요.</Text>
         </SafeAreaView>
-      </View>
+      </LinearGradient>
     )
   }
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={['#101640', '#080711']} style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -230,15 +231,14 @@ export default function ContentDetailScreen({
           ) : null}
         </ScrollView>
       </SafeAreaView>
-    </View>
+    </LinearGradient>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bgMain },
+  container: { flex: 1 },
   loadingContainer: {
     flex: 1,
-    backgroundColor: Colors.bgMain,
     justifyContent: 'center',
     alignItems: 'center',
   },
