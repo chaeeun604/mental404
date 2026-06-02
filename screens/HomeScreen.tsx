@@ -106,27 +106,20 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     : contents
 
   const planetX = useRef(new Animated.Value(0)).current
-  const planetOpacity = useRef(new Animated.Value(1)).current
 
   const switchPlanet = (direction: 'left' | 'right') => {
     if (tags.length <= 1) return
-    const outX = direction === 'right' ? -width * 0.4 : width * 0.4
-    const inX  = direction === 'right' ?  width * 0.4 : -width * 0.4
+    const outX = direction === 'right' ? -width : width
+    const inX  = direction === 'right' ?  width : -width
 
-    Animated.parallel([
-      Animated.timing(planetX,      { toValue: outX, duration: 150, useNativeDriver: true }),
-      Animated.timing(planetOpacity, { toValue: 0,    duration: 150, useNativeDriver: true }),
-    ]).start(() => {
+    Animated.timing(planetX, { toValue: outX, duration: 220, useNativeDriver: true }).start(() => {
       setCurrentTagIdx(prev =>
         direction === 'right'
           ? (prev + 1) % tags.length
           : (prev - 1 + tags.length) % tags.length
       )
       planetX.setValue(inX)
-      Animated.parallel([
-        Animated.timing(planetX,      { toValue: 0, duration: 200, useNativeDriver: true }),
-        Animated.timing(planetOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
-      ]).start()
+      Animated.timing(planetX, { toValue: 0, duration: 220, useNativeDriver: true }).start()
     })
   }
 
@@ -186,12 +179,10 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
       <View style={styles.graphicArea}>
         {/* Planet container — planet centered, bubbles float around it, swipe to change tag */}
         <View style={styles.planetContainer} {...panResponder.panHandlers}>
-          {/* Centered planet */}
-          <Animated.View style={[styles.planetCenter, {
-            transform: [{ translateX: planetX }],
-            opacity: planetOpacity,
-          }]}>
+          <Animated.View style={[styles.planetSlide, { transform: [{ translateX: planetX }] }]}>
+            {/* Centered planet */}
             <TouchableOpacity
+              style={styles.planetCenter}
               activeOpacity={0.9}
               onPress={() => {
                 if (tagContents.length > 0) {
@@ -201,39 +192,39 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
             >
               <PlanetGraphic tagIndex={currentTagIdx} size={PLANET_SIZE} />
             </TouchableOpacity>
-          </Animated.View>
 
-          {/* Floating content bubbles */}
-          {shownCards.map((item, idx) => (
-            <TouchableOpacity
-              key={item.id}
-              style={[styles.bubble, BUBBLE_POSITIONS[idx]]}
-              onPress={() => navigation.navigate('ContentDetail', { contentId: item.id })}
-              activeOpacity={0.8}
-            >
-              <ContentBubble item={item} />
-            </TouchableOpacity>
-          ))}
-
-          {/* Overflow badge — 총 개수 표시 */}
-          {hasOverflow && (
-            <TouchableOpacity
-              style={styles.overflowBadge}
-              onPress={() => {
-                setSelectedTagId(currentTag?.id ?? null)
-                setActiveTab('list')
-              }}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={['#3B21FB', '#AEF1FF']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={styles.overflowGradient}
+            {/* Floating content bubbles */}
+            {shownCards.map((item, idx) => (
+              <TouchableOpacity
+                key={item.id}
+                style={[styles.bubble, BUBBLE_POSITIONS[idx]]}
+                onPress={() => navigation.navigate('ContentDetail', { contentId: item.id })}
+                activeOpacity={0.8}
               >
-                <Text style={styles.overflowText}>+{totalCount}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
+                <ContentBubble item={item} />
+              </TouchableOpacity>
+            ))}
+
+            {/* Overflow badge — 총 개수 표시 */}
+            {hasOverflow && (
+              <TouchableOpacity
+                style={styles.overflowBadge}
+                onPress={() => {
+                  setSelectedTagId(currentTag?.id ?? null)
+                  setActiveTab('list')
+                }}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={['#3B21FB', '#AEF1FF']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={styles.overflowGradient}
+                >
+                  <Text style={styles.overflowText}>+{totalCount}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          </Animated.View>
         </View>
 
         {/* Arrow navigation */}
@@ -466,7 +457,12 @@ const styles = StyleSheet.create({
   planetContainer: {
     width: width,
     height: 380,
-    position: 'relative',
+    overflow: 'hidden',
+  },
+  planetSlide: {
+    position: 'absolute',
+    width: width,
+    height: 380,
   },
   planetCenter: {
     position: 'absolute',
@@ -478,8 +474,8 @@ const styles = StyleSheet.create({
   },
   overflowBadge: {
     position: 'absolute',
-    bottom: 30,
-    right: 24,
+    bottom: 52,
+    right: 48,
   },
   overflowGradient: {
     width: 48,

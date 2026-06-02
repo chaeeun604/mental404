@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, ScrollView, Image, ActivityIndicator, Platform, Modal,
+  Alert, ScrollView, Image, ActivityIndicator, Platform, Modal, Animated,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -35,6 +35,27 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
   const [newTagInput, setNewTagInput] = useState('')
   const [addingTag, setAddingTag]     = useState(false)
   const [showExitModal, setShowExitModal] = useState(false)
+
+  const progressAnim = useRef(new Animated.Value(1 / TOTAL_STEPS)).current
+  const successOpacity = useRef(new Animated.Value(0)).current
+  const successY = useRef(new Animated.Value(24)).current
+
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: step / TOTAL_STEPS,
+      duration: 300,
+      useNativeDriver: false,
+    }).start()
+  }, [step])
+
+  useEffect(() => {
+    if (step === 4) {
+      Animated.parallel([
+        Animated.timing(successOpacity, { toValue: 1, duration: 480, useNativeDriver: true }),
+        Animated.timing(successY, { toValue: 0, duration: 380, useNativeDriver: true }),
+      ]).start()
+    }
+  }, [step])
 
   const customTags = tags.filter(t => !t.is_default)
   const remainingCustom = MAX_CUSTOM_TAGS - customTags.length
@@ -127,7 +148,10 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
       <View style={styles.container}>
         <LinearGradient colors={['#050928', '#080711']} style={StyleSheet.absoluteFill} />
         <SafeAreaView style={styles.safeArea}>
-          <View style={styles.successScreen}>
+          <Animated.View style={[styles.successScreen, {
+            opacity: successOpacity,
+            transform: [{ translateY: successY }],
+          }]}>
             {/* 별 아이콘 */}
             <View style={styles.starIconWrap}>
               <Text style={styles.starIconText}>✦</Text>
@@ -174,7 +198,7 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
                 </TouchableOpacity>
               )}
             </View>
-          </View>
+          </Animated.View>
         </SafeAreaView>
       </View>
     )
@@ -216,14 +240,14 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
 
       <SafeAreaView style={styles.safeArea}>
 
-        {/* 진행 바 (전체 너비 얇은 세그먼트) */}
-        <View style={styles.progressBar}>
-          {[1, 2, 3].map(i => (
-            <View
-              key={i}
-              style={[styles.progressSegment, step >= i && styles.progressSegmentActive]}
-            />
-          ))}
+        {/* 진행 바 */}
+        <View style={styles.progressTrack}>
+          <Animated.View style={[styles.progressFill, {
+            width: progressAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0%', '100%'],
+            }),
+          }]} />
         </View>
 
         {/* 헤더 */}
@@ -440,20 +464,18 @@ const styles = StyleSheet.create({
   safeArea:  { flex: 1 },
 
   // 진행 바
-  progressBar: {
-    flexDirection: 'row',
-    gap: 4,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 4,
+  progressTrack: {
+    height: 3,
+    marginHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    overflow: 'hidden',
   },
-  progressSegment: {
-    flex: 1,
+  progressFill: {
     height: 3,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  progressSegmentActive: {
     backgroundColor: '#534dfc',
   },
 
