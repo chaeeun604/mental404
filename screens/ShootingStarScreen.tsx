@@ -3,6 +3,48 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   Animated, ScrollView, ActivityIndicator, Image, Platform,
 } from 'react-native'
+
+const NUMBER_IMAGES = [
+  require('../assets/numbers/0.png'),
+  require('../assets/numbers/1.png'),
+  require('../assets/numbers/2.png'),
+  require('../assets/numbers/3.png'),
+  require('../assets/numbers/4.png'),
+  require('../assets/numbers/5.png'),
+  require('../assets/numbers/6.png'),
+  require('../assets/numbers/7.png'),
+  require('../assets/numbers/8.png'),
+  require('../assets/numbers/9.png'),
+]
+
+function TodayNumericDate() {
+  const d = new Date()
+  const str = `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+  return (
+    <View style={numStyles.row}>
+      {str.split('').map((ch, i) =>
+        ch === '.' ? (
+          <Text key={i} style={numStyles.dot}>.</Text>
+        ) : (
+          <Image key={i} source={NUMBER_IMAGES[parseInt(ch)]} style={numStyles.digit} resizeMode="contain" />
+        )
+      )}
+    </View>
+  )
+}
+
+const numStyles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'flex-end', gap: 2 },
+  digit: { width: 38, height: 58 },
+  dot: {
+    fontSize: 46,
+    color: '#fbfcfe',
+    fontFamily: 'Pretendard-Bold',
+    lineHeight: 62,
+    marginHorizontal: 1,
+    includeFontPadding: false,
+  },
+})
 import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -124,20 +166,25 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
     ? new Date(content.created_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
     : ''
 
+
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#080711', '#101640', '#080711']} style={StyleSheet.absoluteFill} />
 
       <SafeAreaView style={styles.safeArea}>
-        {/* 상단 헤더: 닫기(좌) + 열린 날짜(우) */}
+        {/* 상단 헤더 */}
         <View style={styles.headerRow}>
           <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
             <Ionicons name="chevron-down" size={28} color={Colors.textSecondary} />
           </TouchableOpacity>
-          <Text style={styles.headerDate}>
-            {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
-          </Text>
         </View>
+
+        {/* 숫자 날짜 — 별 공개 후에만 표시 */}
+        {revealed && (
+          <View style={styles.dateBlock}>
+            <TodayNumericDate />
+          </View>
+        )}
 
         {/* 타이틀 */}
         <View style={styles.titleSection}>
@@ -260,12 +307,9 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   closeBtn:     { padding: 14 },
-  headerDate: {
-    fontSize: 13,
-    fontFamily: 'Pretendard-Regular',
-    color: '#636887',
-    paddingRight: 16,
-    letterSpacing: 0.2,
+  dateBlock: {
+    paddingLeft: 20,
+    paddingBottom: 8,
   },
   titleSection: { alignItems: 'center', paddingHorizontal: 32, paddingBottom: 24, gap: 8 },
   title: {

@@ -1,4 +1,5 @@
-import { Image } from 'react-native'
+import { useEffect, useRef } from 'react'
+import { Animated, Easing } from 'react-native'
 
 const PLANET_IMAGES = [
   require('../assets/planets/planet0.png'),
@@ -19,10 +20,33 @@ interface Props {
 }
 
 export default function PlanetGraphic({ tagIndex, size = 290 }: Props) {
+  const floatAnim = useRef(new Animated.Value(0)).current
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: -10,
+          duration: 2200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 2200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    )
+    loop.start()
+    return () => loop.stop()
+  }, [floatAnim])
+
   return (
-    <Image
+    <Animated.Image
       source={PLANET_IMAGES[tagIndex % PLANET_IMAGES.length]}
-      style={{ width: size, height: size }}
+      style={{ width: size, height: size, transform: [{ translateY: floatAnim }] }}
       resizeMode="contain"
     />
   )
