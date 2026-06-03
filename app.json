@@ -43,7 +43,8 @@
       "expo-updates",
       "expo-web-browser",
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      "expo-notifications"
     ],
     "extra": {
       "eas": {

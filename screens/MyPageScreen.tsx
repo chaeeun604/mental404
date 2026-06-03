@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '../hooks/useAuth'
 import { getUserSettings, upsertUserSettings } from '../api/userSettings'
+import { scheduleSmartNotification, cancelAllNotifications } from '../api/notification'
 import { Colors } from '../constants/colors'
 import type { ScreenProps } from '../types/navigation'
 
@@ -32,9 +33,13 @@ export default function MyPageScreen({ navigation }: ScreenProps<'MyPage'>) {
   const handleShootingStarToggle = async (val: boolean) => {
     setShootingStarNotif(val)
     if (!session?.user?.id) return
-    await upsertUserSettings(session.user.id, { notification_enabled: val }).catch(() => {})
     if (val) {
+      await upsertUserSettings(session.user.id, { notification_enabled: true }).catch(() => {})
+      await scheduleSmartNotification(session.user.id)
       Alert.alert('알림 설정', '추천 콘텐츠 알림이 켜졌어요.\n매일 별똥별이 도착하면 알려드릴게요.')
+    } else {
+      await cancelAllNotifications()
+      await upsertUserSettings(session.user.id, { notification_enabled: false }).catch(() => {})
     }
   }
 
