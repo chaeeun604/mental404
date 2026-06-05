@@ -263,7 +263,12 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           onPress={() => navigation.navigate('ContentDetail', { contentId: item.id })}
           activeOpacity={0.85}
         >
-          <Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+          <Image
+            source={{ uri: imageUrl }}
+            style={StyleSheet.absoluteFillObject}
+            resizeMode="cover"
+            onError={(e) => console.warn('[ListCard] image load error:', imageUrl, e.nativeEvent.error)}
+          />
           <View style={styles.listCardOverlay} />
           <View style={styles.listDateRow}>
             <Ionicons name="time-outline" size={16} color="#9A9FB3" />

@@ -104,6 +104,7 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
       let finalImageUrl: string | undefined
       if (contentType === 'image' && imageUri) {
         finalImageUrl = await uploadImage(session.user.id, imageUri, imageBase64 ?? undefined)
+        console.log('[handleSave] image_url to save:', finalImageUrl)
       }
 
       const result = await createContent(

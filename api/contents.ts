@@ -96,40 +96,52 @@ export async function getContentById(contentId: string): Promise<ContentWithTags
 //   return picked
 // }
 
+// base64 문자열 → ArrayBuffer (Supabase 공식 RN 권장 방식, new Blob([ArrayBuffer]) 에러 회피)
+function decodeBase64(base64: string): ArrayBuffer {
+  const binaryStr = atob(base64)
+  const bytes = new Uint8Array(binaryStr.length)
+  for (let i = 0; i < binaryStr.length; i++) {
+    bytes[i] = binaryStr.charCodeAt(i)
+  }
+  return bytes.buffer
+}
+
 export async function uploadImage(user_id: string, uri: string, base64Data?: string): Promise<string> {
   const basePath = `${user_id}/${Date.now()}`
-  let blob: Blob
   let ext: string
   let mimeType: string
+  let uploadBody: Blob | ArrayBuffer
 
   if (Platform.OS === 'web' || uri.startsWith('blob:')) {
     // Web: blob: URI → fetch → Blob
     const response = await fetch(uri)
-    blob = await response.blob()
-    ext = blob.type.split('/')[1] ?? 'jpg'
+    const blob = await response.blob()
+    ext = (blob.type.split('/')[1] ?? 'jpg').split('+')[0]
     mimeType = blob.type || 'image/jpeg'
+    uploadBody = blob
   } else {
-    // Native (Android/iOS)
+    // Native (Android/iOS): ArrayBuffer를 직접 Supabase에 전달
+    // React Native에서 new Blob([ArrayBuffer])는 미지원이므로 Blob 생성 안 함
     ext = (uri.split('.').pop() ?? 'jpg').toLowerCase().split('?')[0]
-    mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`
+    if (ext === 'jpeg') ext = 'jpg'
+    mimeType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`
+
     if (base64Data) {
-      // data: URI fetch는 React Native(JSC·Hermes) 모두 지원됨
-      // new Blob([ArrayBuffer])는 지원 안 되므로 이 방식만 사용
-      const response = await fetch(`data:${mimeType};base64,${base64Data}`)
-      blob = await response.blob()
+      uploadBody = decodeBase64(base64Data)
     } else {
-      // base64 없으면 file:// URI 직접 fetch
+      // base64 없으면 file:// URI fetch (fallback)
       const response = await fetch(uri)
-      blob = await response.blob()
+      uploadBody = await response.arrayBuffer()
     }
   }
 
   const path = `${basePath}.${ext}`
-  console.log('[uploadImage] path:', path, 'size:', blob.size, 'type:', mimeType)
+  console.log('[uploadImage] path:', path, 'type:', mimeType,
+    'size:', uploadBody instanceof ArrayBuffer ? uploadBody.byteLength : (uploadBody as Blob).size)
 
   const { error } = await supabase.storage
     .from('contents')
-    .upload(path, blob, { contentType: mimeType })
+    .upload(path, uploadBody, { contentType: mimeType })
 
   if (error) {
     console.error('[uploadImage] error:', error.message)
