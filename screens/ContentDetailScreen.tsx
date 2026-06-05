@@ -186,7 +186,12 @@ export default function ContentDetailScreen({
               source={{ uri: content.image_url }}
               style={styles.image}
               resizeMode="cover"
+              onError={(e) => console.warn('[Image] load error:', content.image_url, e.nativeEvent.error)}
             />
+          ) : content.type === 'image' ? (
+            <View style={[styles.image, { backgroundColor: '#2D3052', alignItems: 'center', justifyContent: 'center' }]}>
+              <Text style={{ color: '#9A9AB3', fontSize: 13 }}>이미지를 불러올 수 없어요</Text>
+            </View>
           ) : null}
 
           {/* Body */}

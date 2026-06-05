@@ -99,33 +99,50 @@ export async function getContentById(contentId: string): Promise<ContentWithTags
 export async function uploadImage(user_id: string, uri: string, base64Data?: string): Promise<string> {
   const basePath = `${user_id}/${Date.now()}`
 
-  let blob: Blob
+  let uploadData: Blob | ArrayBuffer
   let ext: string
   let mimeType: string
 
   if (Platform.OS === 'web' || uri.startsWith('blob:')) {
+    // Web: blob: URI를 fetch로 읽어 Blob으로 변환
     const response = await fetch(uri)
-    blob = await response.blob()
+    const blob = await response.blob()
     ext = blob.type.split('/')[1] ?? 'jpg'
     mimeType = blob.type || 'image/jpeg'
-  } else {
+    uploadData = blob
+  } else if (base64Data) {
+    // Native: base64를 atob로 직접 디코딩 (data: URI fetch는 Hermes에서 불안정)
     ext = (uri.split('.').pop() ?? 'jpg').toLowerCase().split('?')[0]
     mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`
-    if (base64Data) {
-      const response = await fetch(`data:${mimeType};base64,${base64Data}`)
-      blob = await response.blob()
-    } else {
-      const response = await fetch(uri)
-      blob = await response.blob()
+    const binaryStr = atob(base64Data)
+    const bytes = new Uint8Array(binaryStr.length)
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i)
     }
+    uploadData = new Blob([bytes], { type: mimeType })
+  } else {
+    // Native fallback: file URI 직접 fetch
+    ext = (uri.split('.').pop() ?? 'jpg').toLowerCase().split('?')[0]
+    mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`
+    const response = await fetch(uri)
+    uploadData = await response.blob()
   }
 
   const path = `${basePath}.${ext}`
+  console.log('[uploadImage] uploading to path:', path, 'type:', mimeType)
+
   const { error } = await supabase.storage
     .from('contents')
-    .upload(path, blob, { contentType: mimeType })
-  if (error) throw error
-  return supabase.storage.from('contents').getPublicUrl(path).data.publicUrl
+    .upload(path, uploadData, { contentType: mimeType })
+
+  if (error) {
+    console.error('[uploadImage] storage error:', error.message)
+    throw error
+  }
+
+  const { data } = supabase.storage.from('contents').getPublicUrl(path)
+  console.log('[uploadImage] public URL:', data.publicUrl)
+  return data.publicUrl
 }
 
 // 가중치 기반 추천
