@@ -285,51 +285,17 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
 
   const renderListView = () => {
     return (
-      <View style={styles.flex}>
-        {/* 태그 칩 (태그별 개수 표시, 기본 첫 번째 선택) */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tagChipsRow}
-          style={styles.tagChipsScroll}
-        >
-          {tags.map(tag => {
-            const isActive = selectedTagId === tag.id
-            const count = contents.filter(c => c.content_tags?.some(ct => ct.tag_id === tag.id)).length
-            return (
-              <TouchableOpacity
-                key={tag.id}
-                style={[styles.tagChip, isActive && styles.tagChipActive]}
-                onPress={() => setSelectedTagId(tag.id)}
-              >
-                <Text style={[styles.tagChipText, isActive && styles.tagChipTextActive]}>
-                  {tag.name}
-                </Text>
-                <View style={[styles.tagCountBadge, isActive && styles.tagCountBadgeActive]}>
-                  <Text style={[styles.tagCountText, isActive && styles.tagCountTextActive]}>
-                    {count}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )
-          })}
-        </ScrollView>
-
-        {/* 기록 수 — 항상 표시 */}
-        <Text style={styles.totalCount}>{listContents.length}개의 별</Text>
-
-        <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-          {contentsLoading ? (
-            <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
-          ) : listContents.length === 0 ? (
-            <View style={styles.emptyCenter}>
-              <Text style={styles.emptyText}>이 태그에 기록이 없어요.{'\n'}+ 버튼으로 추가해보세요.</Text>
-            </View>
-          ) : (
-            listContents.map(item => renderListCard(item))
-          )}
-        </ScrollView>
-      </View>
+      <ScrollView style={styles.flex} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+        {contentsLoading ? (
+          <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
+        ) : listContents.length === 0 ? (
+          <View style={styles.emptyCenter}>
+            <Text style={styles.emptyText}>이 태그에 기록이 없어요.{'\n'}+ 버튼으로 추가해보세요.</Text>
+          </View>
+        ) : (
+          listContents.map(item => renderListCard(item))
+        )}
+      </ScrollView>
     )
   }
 
@@ -401,6 +367,40 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
               <Ionicons name="chevron-forward" size={16} color={Colors.textPrimary} />
             </LinearGradient>
           </TouchableOpacity>
+
+          {/* 상황 바 — 배너 바로 아래 항상 고정, 리스트 뷰에서만 표시 */}
+          {activeTab === 'list' && (
+            <>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.tagChipsRow}
+                style={styles.tagChipsScroll}
+              >
+                {tags.map(tag => {
+                  const isActive = selectedTagId === tag.id
+                  const count = contents.filter(c => c.content_tags?.some(ct => ct.tag_id === tag.id)).length
+                  return (
+                    <TouchableOpacity
+                      key={tag.id}
+                      style={[styles.tagChip, isActive && styles.tagChipActive]}
+                      onPress={() => setSelectedTagId(tag.id)}
+                    >
+                      <Text style={[styles.tagChipText, isActive && styles.tagChipTextActive]}>
+                        {tag.name}
+                      </Text>
+                      <View style={[styles.tagCountBadge, isActive && styles.tagCountBadgeActive]}>
+                        <Text style={[styles.tagCountText, isActive && styles.tagCountTextActive]}>
+                          {count}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  )
+                })}
+              </ScrollView>
+              <Text style={styles.totalCount}>{listContents.length}개의 별</Text>
+            </>
+          )}
 
           {/* Content area */}
           <View style={styles.flex}>

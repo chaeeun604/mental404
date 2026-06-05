@@ -28,6 +28,7 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
   const [contentType, setContentType] = useState<ContentType>('text')
   const [body, setBody]             = useState('')
   const [imageUri, setImageUri]     = useState<string | null>(null)
+  const [imageBase64, setImageBase64] = useState<string | null>(null)
   const [memo, setMemo]             = useState('')
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
   const [saving, setSaving]         = useState(false)
@@ -80,9 +81,11 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.85,
+      base64: true,
     })
     if (!result.canceled && result.assets.length > 0) {
       setImageUri(result.assets[0].uri)
+      setImageBase64(result.assets[0].base64 ?? null)
     }
   }
 
@@ -100,7 +103,7 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
     try {
       let finalImageUrl: string | undefined
       if (contentType === 'image' && imageUri) {
-        finalImageUrl = await uploadImage(session.user.id, imageUri)
+        finalImageUrl = await uploadImage(session.user.id, imageUri, imageBase64 ?? undefined)
       }
 
       const result = await createContent(

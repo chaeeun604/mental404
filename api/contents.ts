@@ -1,7 +1,6 @@
 import { Platform } from 'react-native'
 import { supabase } from '../lib/supabase'
 import { ContentRow, ContentWithTags } from '../types/database'
-import * as FileSystem from 'expo-file-system'
 
 export async function createContent(
   userId: string, 
@@ -97,31 +96,31 @@ export async function getContentById(contentId: string): Promise<ContentWithTags
 //   return picked
 // }
 
-export async function uploadImage(user_id: string, uri: string): Promise<string> {
+export async function uploadImage(user_id: string, uri: string, base64Data?: string): Promise<string> {
   const basePath = `${user_id}/${Date.now()}`
+
+  let blob: Blob
+  let ext: string
+  let mimeType: string
 
   if (Platform.OS === 'web' || uri.startsWith('blob:')) {
     const response = await fetch(uri)
-    const blob = await response.blob()
-    const ext = blob.type.split('/')[1] ?? 'jpg'
-    const path = `${basePath}.${ext}`
-    const { error } = await supabase.storage
-      .from('contents')
-      .upload(path, blob, { contentType: blob.type })
-    if (error) throw error
-    return supabase.storage.from('contents').getPublicUrl(path).data.publicUrl
+    blob = await response.blob()
+    ext = blob.type.split('/')[1] ?? 'jpg'
+    mimeType = blob.type || 'image/jpeg'
+  } else {
+    ext = (uri.split('.').pop() ?? 'jpg').toLowerCase().split('?')[0]
+    mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`
+    if (base64Data) {
+      const response = await fetch(`data:${mimeType};base64,${base64Data}`)
+      blob = await response.blob()
+    } else {
+      const response = await fetch(uri)
+      blob = await response.blob()
+    }
   }
 
-  const ext = (uri.split('.').pop() ?? 'jpg').toLowerCase().split('?')[0]
-  const mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`
   const path = `${basePath}.${ext}`
-
-  // atob + ArrayBuffer 방식은 Android 새 아키텍처에서 불안정하므로
-  // base64 → data URI → fetch blob 방식으로 변환
-  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 })
-  const response = await fetch(`data:${mimeType};base64,${base64}`)
-  const blob = await response.blob()
-
   const { error } = await supabase.storage
     .from('contents')
     .upload(path, blob, { contentType: mimeType })
