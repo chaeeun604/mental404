@@ -100,7 +100,6 @@ export async function getContentById(contentId: string): Promise<ContentWithTags
 export async function uploadImage(user_id: string, uri: string): Promise<string> {
   const basePath = `${user_id}/${Date.now()}`
 
-  // blob: URIs (web 또는 Android 새 아키텍처에서 발생)
   if (Platform.OS === 'web' || uri.startsWith('blob:')) {
     const response = await fetch(uri)
     const blob = await response.blob()
@@ -114,19 +113,18 @@ export async function uploadImage(user_id: string, uri: string): Promise<string>
   }
 
   const ext = (uri.split('.').pop() ?? 'jpg').toLowerCase().split('?')[0]
-  const mimeType = (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : `image/${ext}`
+  const mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`
   const path = `${basePath}.${ext}`
 
-  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any })
-  const binaryString = atob(base64)
-  const bytes = new Uint8Array(binaryString.length)
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i)
-  }
+  // atob + ArrayBuffer 방식은 Android 새 아키텍처에서 불안정하므로
+  // base64 → data URI → fetch blob 방식으로 변환
+  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 })
+  const response = await fetch(`data:${mimeType};base64,${base64}`)
+  const blob = await response.blob()
 
   const { error } = await supabase.storage
     .from('contents')
-    .upload(path, bytes.buffer, { contentType: mimeType })
+    .upload(path, blob, { contentType: mimeType })
   if (error) throw error
   return supabase.storage.from('contents').getPublicUrl(path).data.publicUrl
 }
