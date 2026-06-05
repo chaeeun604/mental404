@@ -100,7 +100,8 @@ export async function getContentById(contentId: string): Promise<ContentWithTags
 export async function uploadImage(user_id: string, uri: string): Promise<string> {
   const basePath = `${user_id}/${Date.now()}`
 
-  if (Platform.OS === 'web') {
+  // blob: URIs (web 또는 Android 새 아키텍처에서 발생)
+  if (Platform.OS === 'web' || uri.startsWith('blob:')) {
     const response = await fetch(uri)
     const blob = await response.blob()
     const ext = blob.type.split('/')[1] ?? 'jpg'

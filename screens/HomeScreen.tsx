@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   Image,
   Platform,
-  Modal,
   PanResponder,
   Animated,
 } from 'react-native'
@@ -72,7 +71,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const [activeTab, setActiveTab]     = useState<'report' | 'graphic' | 'list'>('graphic')
   const [currentTagIdx, setCurrentTagIdx] = useState(0)
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
-  const [showTutorial, setShowTutorial]   = useState(false)
+  const [tutorialStep, setTutorialStep] = useState<0 | 1 | 2>(0)
 
   const loadContents = useCallback(() => {
     if (!userId) return
@@ -90,9 +89,9 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     }, [loadContents])
   )
 
-  // Show tutorial on first home visit
+  // 홈 최초 진입 시 튜토리얼
   useEffect(() => {
-    hasTutorialSeen().then(seen => { if (!seen) setShowTutorial(true) })
+    hasTutorialSeen().then(seen => { if (!seen) setTutorialStep(1) })
   }, [])
 
   const currentTag = tags[currentTagIdx] ?? null
@@ -334,9 +333,13 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     )
   }
 
-  const dismissTutorial = () => {
-    setShowTutorial(false)
-    markTutorialSeen()
+  const advanceTutorial = () => {
+    if (tutorialStep === 1) {
+      setTutorialStep(2)
+    } else {
+      setTutorialStep(0)
+      markTutorialSeen()
+    }
   }
 
   return (
@@ -344,20 +347,30 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
       {/* 별 배경 */}
       <StarField />
 
-      {/* First-visit tutorial overlay */}
-      <Modal visible={showTutorial} transparent animationType="fade">
-        <View style={styles.tutorialOverlay}>
-          <View style={styles.tutorialCard}>
-            <Text style={styles.tutorialTitle}>✦ MORBIT에 오신 걸 환영해요!</Text>
-            <Text style={styles.tutorialBody}>
-              {'기록한 별들이 행성 주위에 떠올라요.\n< > 버튼으로 감정 태그를 바꾸고\n하단 ≡ 버튼으로 전체 목록을 볼 수 있어요.'}
-            </Text>
-            <TouchableOpacity style={styles.tutorialBtn} onPress={dismissTutorial}>
-              <Text style={styles.tutorialBtnText}>알겠어요 ✓</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      {/* 튜토리얼 오버레이 (2단계) */}
+      {tutorialStep > 0 && (
+        <TouchableOpacity
+          style={styles.tutorialOverlay}
+          onPress={advanceTutorial}
+          activeOpacity={1}
+        >
+          {tutorialStep === 1 && (
+            <View style={styles.tooltip1}>
+              <Text style={styles.tooltipText}>
+                {'기록한 별은 마음의 자산이 되어\n항상 우리 곁에 떠 있어요.'}
+              </Text>
+            </View>
+          )}
+          {tutorialStep === 2 && (
+            <View style={styles.tooltip2}>
+              <Text style={styles.tooltipText}>
+                {'선택한 태그와 같은 상황에 별을\n꺼내보며 마음을 관리해요.'}
+              </Text>
+              <View style={styles.tooltipCaret} />
+            </View>
+          )}
+        </TouchableOpacity>
+      )}
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
           {/* Header — title centered, profile icon right */}
@@ -571,43 +584,49 @@ const styles = StyleSheet.create({
 
   // Tutorial overlay
   tutorialOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(5,9,40,0.55)',
+    zIndex: 100,
   },
-  tutorialCard: {
+  tooltip1: {
+    position: 'absolute',
+    top: '28%',
+    left: 24,
+    right: 24,
     backgroundColor: '#fbfcfe',
-    borderRadius: 20,
-    padding: 28,
-    width: '100%',
-    gap: 16,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+  },
+  tooltip2: {
+    position: 'absolute',
+    bottom: 160,
+    left: 24,
+    right: 24,
+    backgroundColor: '#fbfcfe',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
     alignItems: 'center',
   },
-  tutorialTitle: {
-    fontSize: 18,
-    fontFamily: 'Pretendard-SemiBold',
-    color: '#1A1C20',
-    textAlign: 'center',
+  tooltipCaret: {
+    position: 'absolute',
+    bottom: -10,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderTopWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#fbfcfe',
   },
-  tutorialBody: {
-    fontSize: 14,
-    color: '#444',
-    lineHeight: 22,
-    textAlign: 'center',
-    fontFamily: 'Pretendard-Regular',
-  },
-  tutorialBtn: {
-    backgroundColor: '#534dfc',
-    borderRadius: 12,
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    marginTop: 4,
-  },
-  tutorialBtnText: {
-    color: '#fbfcfe',
+  tooltipText: {
     fontSize: 15,
-    fontFamily: 'Pretendard-SemiBold',
+    color: '#1A1C20',
+    fontFamily: 'Pretendard-Medium',
+    lineHeight: 23,
+    textAlign: 'center',
   },
 })

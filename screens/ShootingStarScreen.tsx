@@ -34,14 +34,13 @@ function TodayNumericDate() {
 }
 
 const numStyles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'flex-end', gap: 2 },
-  digit: { width: 38, height: 58 },
+  row: { flexDirection: 'row', alignItems: 'flex-end', gap: 5 },
+  digit: { width: 42, height: 60 },
   dot: {
-    fontSize: 46,
+    fontSize: 28,
     color: '#fbfcfe',
     fontFamily: 'Pretendard-Bold',
-    lineHeight: 62,
-    marginHorizontal: 1,
+    lineHeight: 60,
     includeFontPadding: false,
   },
 })
@@ -243,6 +242,19 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
             ) : (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.cardScroll}>
                 <View style={styles.contentCard}>
+                  {/* 태그 (상단) */}
+                  {content.content_tags && content.content_tags.length > 0 && (
+                    <View style={styles.tagSection}>
+                      <View style={styles.tagRow}>
+                        {content.content_tags.map(ct => (
+                          <View key={ct.tag_id} style={styles.tagChip}>
+                            <Text style={styles.tagChipText}>{ct.tags?.name}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
                   {/* 이미지형 */}
                   {content.type === 'image' && content.image_url ? (
                     <Image
@@ -251,18 +263,6 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
                       resizeMode="cover"
                     />
                   ) : null}
-
-                  {/* 날짜 + 태그 */}
-                  <View style={styles.metaRow}>
-                    <Text style={styles.contentDate}>{dateLabel}</Text>
-                    <View style={styles.tagRow}>
-                      {content.content_tags?.map(ct => (
-                        <View key={ct.tag_id} style={styles.tagChip}>
-                          <Text style={styles.tagChipText}>{ct.tags?.name}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
 
                   {/* 본문 */}
                   {content.type === 'text' && content.body ? (
@@ -276,6 +276,11 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
                       <Text style={styles.memoText}>{content.memo}</Text>
                     </View>
                   ) : null}
+
+                  {/* 날짜 (하단) */}
+                  <View style={styles.dateRow}>
+                    <Text style={styles.contentDate}>{dateLabel}</Text>
+                  </View>
                 </View>
 
                 <TouchableOpacity
@@ -356,12 +361,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#2D3052',
-    gap: 16,
     marginBottom: 14,
   },
   contentImage: { width: '100%', height: 200 },
-  metaRow: { paddingHorizontal: 20, paddingTop: 16, gap: 8 },
-  contentDate: { fontSize: 12, color: '#636887', fontFamily: 'Pretendard-Regular' },
+  tagSection: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 4,
+  },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   tagChip: {
     backgroundColor: '#2D3052',
@@ -376,6 +383,7 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     fontFamily: 'Pretendard-Regular',
     paddingHorizontal: 20,
+    paddingTop: 12,
     paddingBottom: 4,
   },
   memoSection: {
@@ -383,11 +391,19 @@ const styles = StyleSheet.create({
     borderTopColor: '#2D3052',
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 16,
+    paddingBottom: 12,
     gap: 6,
   },
   memoLabel: { fontSize: 11, color: '#636887', fontFamily: 'Pretendard-Medium' },
   memoText: { fontSize: 13, color: '#9A9AB3', lineHeight: 20, fontFamily: 'Pretendard-Regular' },
+  dateRow: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#2D3052',
+  },
+  contentDate: { fontSize: 12, color: '#636887', fontFamily: 'Pretendard-Regular' },
   emptyCard: {
     backgroundColor: '#272936',
     borderRadius: 20,

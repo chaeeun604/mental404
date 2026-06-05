@@ -57,7 +57,7 @@ export default function MyPageScreen({ navigation }: ScreenProps<'MyPage'>) {
         text: '로그아웃',
         style: 'destructive',
         onPress: async () => {
-          await signOut()
+          try { await signOut() } catch {}
           navigation.reset({ index: 0, routes: [{ name: 'Auth' }] })
         },
       },

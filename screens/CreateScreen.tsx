@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
 import { useAuth } from '../hooks/useAuth'
 import { useTags } from '../hooks/useTags'
-import { createContent } from '../api/contents'
+import { createContent, uploadImage } from '../api/contents'
 import { Colors } from '../constants/colors'
 import type { ScreenProps } from '../types/navigation'
 import type { ContentRow } from '../types/database'
@@ -98,12 +98,17 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
     if (!session?.user?.id || !canSave) return
     setSaving(true)
     try {
+      let finalImageUrl: string | undefined
+      if (contentType === 'image' && imageUri) {
+        finalImageUrl = await uploadImage(session.user.id, imageUri)
+      }
+
       const result = await createContent(
         session.user.id,
         {
           type: contentType,
           body: contentType === 'text' ? body.trim() : undefined,
-          image_url: contentType === 'image' ? (imageUri ?? undefined) : undefined,
+          image_url: finalImageUrl,
           memo: memo.trim() || undefined,
         },
         selectedTagIds,

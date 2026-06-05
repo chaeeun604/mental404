@@ -17,9 +17,6 @@
       "autoIncrement": true
     }
   },
-  "update": {
-    "url": "https://u.expo.dev/f7e23cb1-2cff-431a-9a62-b143f0b417cf"
-  },
   "submit": {
     "production": {}
   }
