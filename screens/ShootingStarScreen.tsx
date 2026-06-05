@@ -197,17 +197,16 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
           <View style={styles.mysteryArea}>
             <TouchableOpacity onPress={reveal} activeOpacity={0.9} disabled={loading}>
               <Animated.View
-                style={[
-                  styles.mysteryBox,
-                  {
-                    transform: [{ translateX: shakeAnim }, { scale: scaleAnim }],
-                    opacity: boxOpacity,
-                  },
-                ]}
+                style={{
+                  transform: [{ translateX: shakeAnim }, { scale: scaleAnim }],
+                  opacity: boxOpacity,
+                }}
               >
-                {/* 내부 블루 글로우 */}
-                <View style={styles.boxGlow} />
-                <Text style={styles.questionMark}>?</Text>
+                <Image
+                  source={require('../assets/mystery_box.png')}
+                  style={styles.mysteryBoxImage}
+                  resizeMode="contain"
+                />
                 {loading && (
                   <ActivityIndicator
                     color={Colors.primaryLight}
@@ -322,34 +321,9 @@ const styles = StyleSheet.create({
   },
 
   mysteryArea: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  mysteryBox: {
-    width: 248,
-    height: 186,
-    borderRadius: 32,
-    backgroundColor: '#02061C',
-    borderWidth: 1.5,
-    borderColor: '#534dfc',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    shadowColor: '#534dfc',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  boxGlow: {
-    position: 'absolute',
-    top: -20,
-    width: 218,
-    height: 108,
-    borderRadius: 109,
-    backgroundColor: 'rgba(118,125,255,0.4)',
-  },
-  questionMark: {
-    fontSize: 56,
-    color: '#ACB5FF',
-    fontFamily: 'Pretendard-Bold',
+  mysteryBoxImage: {
+    width: 280,
+    height: 210,
   },
 
   revealArea: { flex: 1, paddingHorizontal: 20 },

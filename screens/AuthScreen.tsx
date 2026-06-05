@@ -78,10 +78,27 @@ export default function AuthScreen({ navigation }: ScreenProps<'Auth'>) {
     try {
       await signInWithKakao()
       // Web은 signInWithKakao에서 페이지 리다이렉트되므로 이후 코드가 실행되지 않음
-      // SplashScreen이 재실행되며 세션을 감지하고 navigation을 처리함
       if (Platform.OS === 'web') return
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+
+      // Kakao OAuth에서 오는 메타데이터 확인 (어떤 필드가 오는지 로그로 확인)
+      console.log('Kakao user_metadata:', JSON.stringify(user.user_metadata, null, 2))
+
+      // Kakao는 nickname, name, full_name 중 하나로 이름을 보냄
+      const kakaoNickname =
+        user.user_metadata?.nickname ??
+        user.user_metadata?.name ??
+        user.user_metadata?.full_name ??
+        null
+
+      // full_name이 비어있으면 Kakao 닉네임으로 채워줌
+      if (kakaoNickname && !user.user_metadata?.full_name) {
+        await supabase.auth.updateUser({
+          data: { full_name: kakaoNickname },
+        })
+      }
+
       const { getAllContents } = await import('../api/contents')
       const contents = await getAllContents(user.id)
       navigation.replace(contents.length === 0 ? 'Onboarding' : 'Home')
