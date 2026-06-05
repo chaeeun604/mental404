@@ -181,8 +181,12 @@ export default function ContentDetailScreen({
           </View>
 
           {/* Image */}
-          {content.type === 'image' && content.image_url ? (
-            <Image source={{ uri: content.image_url }} style={styles.image} />
+          {content.type === 'image' && content.image_url && !content.image_url.startsWith('blob:') ? (
+            <Image
+              source={{ uri: content.image_url }}
+              style={styles.image}
+              resizeMode="cover"
+            />
           ) : null}
 
           {/* Body */}
@@ -267,7 +271,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   tagChipText: { fontSize: 13, color: Colors.primaryLight, fontWeight: '500' },
-  image: { width: '100%', height: 300, borderRadius: 16, resizeMode: 'cover' },
+  image: { width: '100%', height: 300, borderRadius: 16 },
   bodyText: { fontSize: 16, color: Colors.textPrimary, lineHeight: 26 },
   editArea: {
     fontSize: 16,

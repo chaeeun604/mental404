@@ -10,10 +10,11 @@ function truncate(s: string, max: number) {
 }
 
 export default function ContentBubble({ item }: Props) {
-  if (item.type === 'image' && item.image_url) {
+  const imageUrl = item.image_url && !item.image_url.startsWith('blob:') ? item.image_url : null
+  if (item.type === 'image' && imageUrl) {
     return (
       <View style={styles.imagePill}>
-        <Image source={{ uri: item.image_url }} style={styles.thumbnail} />
+        <Image source={{ uri: imageUrl }} style={styles.thumbnail} />
       </View>
     )
   }

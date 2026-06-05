@@ -77,6 +77,9 @@ export default function AuthScreen({ navigation }: ScreenProps<'Auth'>) {
     setKakaoLoading(true)
     try {
       await signInWithKakao()
+      // Web은 signInWithKakao에서 페이지 리다이렉트되므로 이후 코드가 실행되지 않음
+      // SplashScreen이 재실행되며 세션을 감지하고 navigation을 처리함
+      if (Platform.OS === 'web') return
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const { getAllContents } = await import('../api/contents')

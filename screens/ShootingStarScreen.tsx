@@ -44,6 +44,7 @@ const numStyles = StyleSheet.create({
     includeFontPadding: false,
   },
 })
+
 import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -89,7 +90,6 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
   const [content, setContent]     = useState<ContentWithTags | null | undefined>(undefined)
   const [loading, setLoading]     = useState(false)
 
-  // 애니메이션 값들
   const shakeAnim   = useRef(new Animated.Value(0)).current
   const scaleAnim   = useRef(new Animated.Value(1)).current
   const boxOpacity  = useRef(new Animated.Value(1)).current
@@ -97,7 +97,6 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
   const cardScale   = useRef(new Animated.Value(0.9)).current
   const shakeLoop   = useRef<Animated.CompositeAnimation | null>(null)
 
-  // 박스가 주기적으로 흔들리는 애니메이션
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -122,7 +121,6 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
     setLoading(true)
     shakeLoop.current?.stop()
 
-    // 박스 터지는 효과: 커졌다가 사라짐
     Animated.sequence([
       Animated.timing(scaleAnim, { toValue: 1.2, duration: 150, useNativeDriver: true }),
       Animated.parallel([
@@ -134,7 +132,6 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
         const userId = session?.user?.id ?? ''
         let result: ContentWithTags | null = null
 
-        // 오늘 이미 뽑은 별이 있으면 재사용
         const cachedId = await getCachedDailyStar(userId)
         if (cachedId) {
           result = await getContentById(cachedId)
@@ -165,20 +162,24 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
     ? new Date(content.created_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
     : ''
 
+  const imageUrl = content?.image_url && !content.image_url.startsWith('blob:')
+    ? content.image_url
+    : null
 
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#080711', '#101640', '#080711']} style={StyleSheet.absoluteFill} />
 
       <SafeAreaView style={styles.safeArea}>
-        {/* 상단 헤더 */}
+        {/* 헤더 — X 버튼 오른쪽 고정 */}
         <View style={styles.headerRow}>
+          <View style={{ width: 44 }} />
           <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-down" size={28} color={Colors.textSecondary} />
+            <Ionicons name="close" size={24} color={Colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        {/* 숫자 날짜 — 별 공개 후에만 표시 */}
+        {/* 날짜 — 별 공개 후에만 표시 */}
         {revealed && (
           <View style={styles.dateBlock}>
             <TodayNumericDate />
@@ -188,7 +189,7 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
         {/* 타이틀 */}
         <View style={styles.titleSection}>
           <Text style={styles.title}>오늘은 어떤 별이{'\n'}떨어졌을까요?</Text>
-          <Text style={styles.subtitle}>기록한 별 중 하나가 당신을 찾아왔어요.</Text>
+          <Text style={styles.subtitle}>기록한 별 중 하나가 매일 랜덤으로 떨어져요.</Text>
         </View>
 
         {/* 미스터리 박스 */}
@@ -199,29 +200,22 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
                 style={[
                   styles.mysteryBox,
                   {
-                    transform: [
-                      { translateX: shakeAnim },
-                      { scale: scaleAnim },
-                    ],
+                    transform: [{ translateX: shakeAnim }, { scale: scaleAnim }],
                     opacity: boxOpacity,
                   },
                 ]}
               >
-                <LinearGradient
-                  colors={['#1a1040', '#2d1f7a']}
-                  style={styles.boxGradient}
-                >
-                  <Text style={styles.starEmoji}>✦</Text>
-                  {loading && (
-                    <ActivityIndicator
-                      color={Colors.primaryLight}
-                      style={StyleSheet.absoluteFill}
-                    />
-                  )}
-                </LinearGradient>
+                {/* 내부 블루 글로우 */}
+                <View style={styles.boxGlow} />
+                <Text style={styles.questionMark}>?</Text>
+                {loading && (
+                  <ActivityIndicator
+                    color={Colors.primaryLight}
+                    style={StyleSheet.absoluteFill}
+                  />
+                )}
               </Animated.View>
             </TouchableOpacity>
-            <Text style={styles.tapHint}>상자를 눌러 별을 확인하세요</Text>
           </View>
         ) : (
           /* 공개된 콘텐츠 */
@@ -241,55 +235,46 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
               </View>
             ) : (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.cardScroll}>
-                <View style={styles.contentCard}>
-                  {/* 태그 (상단) */}
-                  {content.content_tags && content.content_tags.length > 0 && (
-                    <View style={styles.tagSection}>
-                      <View style={styles.tagRow}>
-                        {content.content_tags.map(ct => (
-                          <View key={ct.tag_id} style={styles.tagChip}>
-                            <Text style={styles.tagChipText}>{ct.tags?.name}</Text>
-                          </View>
-                        ))}
+                {/* 태그 칩 — #534DFC 배경 */}
+                {content.content_tags && content.content_tags.length > 0 && (
+                  <View style={styles.tagRow}>
+                    {content.content_tags.map(ct => (
+                      <View key={ct.tag_id} style={styles.tagChip}>
+                        <Text style={styles.tagChipText}>{ct.tags?.name}</Text>
                       </View>
-                    </View>
-                  )}
-
-                  {/* 이미지형 */}
-                  {content.type === 'image' && content.image_url ? (
-                    <Image
-                      source={{ uri: content.image_url }}
-                      style={styles.contentImage}
-                      resizeMode="cover"
-                    />
-                  ) : null}
-
-                  {/* 본문 */}
-                  {content.type === 'text' && content.body ? (
-                    <Text style={styles.contentBody}>{content.body}</Text>
-                  ) : null}
-
-                  {/* 메모 */}
-                  {content.memo ? (
-                    <View style={styles.memoSection}>
-                      <Text style={styles.memoLabel}>메모</Text>
-                      <Text style={styles.memoText}>{content.memo}</Text>
-                    </View>
-                  ) : null}
-
-                  {/* 날짜 (하단) */}
-                  <View style={styles.dateRow}>
-                    <Text style={styles.contentDate}>{dateLabel}</Text>
+                    ))}
                   </View>
-                </View>
+                )}
 
+                {/* 이미지 */}
+                {imageUrl ? (
+                  <Image
+                    source={{ uri: imageUrl }}
+                    style={styles.contentImage}
+                    resizeMode="cover"
+                  />
+                ) : null}
+
+                {/* 본문 — 22px SemiBold */}
+                {content.body ? (
+                  <Text style={styles.contentBody}>{content.body}</Text>
+                ) : null}
+
+                {/* 메모 — 독립 카드 */}
+                {content.memo ? (
+                  <View style={styles.memoCard}>
+                    <Text style={styles.memoText}>{content.memo}</Text>
+                  </View>
+                ) : null}
+
+                {/* 날짜 + 자세히 보기 */}
                 <TouchableOpacity
-                  style={styles.detailBtn}
+                  style={styles.dateRow}
                   onPress={() => navigation.navigate('ContentDetail', { contentId: content.id })}
-                  activeOpacity={0.85}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.detailBtnText}>자세히 보기</Text>
-                  <Ionicons name="arrow-forward" size={16} color="#fbfcfe" />
+                  <Ionicons name="arrow-forward-circle-outline" size={16} color="#9A9AB3" />
+                  <Text style={styles.contentDate}>{dateLabel}</Text>
                 </TouchableOpacity>
               </ScrollView>
             )}
@@ -301,109 +286,119 @@ export default function ShootingStarScreen({ navigation }: ScreenProps<'Shooting
 }
 
 const styles = StyleSheet.create({
-  container:    { flex: 1, backgroundColor: '#080711' },
-  safeArea:     { flex: 1 },
+  container:  { flex: 1, backgroundColor: '#080711' },
+  safeArea:   { flex: 1 },
+
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 8,
+    paddingHorizontal: 20,
     paddingTop: 4,
     paddingBottom: 4,
   },
-  closeBtn:     { padding: 14 },
+  closeBtn: { padding: 10 },
+
   dateBlock: {
     paddingLeft: 20,
     paddingBottom: 8,
   },
-  titleSection: { alignItems: 'center', paddingHorizontal: 32, paddingBottom: 24, gap: 8 },
+
+  titleSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+    gap: 8,
+  },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontFamily: 'Pretendard-SemiBold',
     color: '#fbfcfe',
-    textAlign: 'center',
-    lineHeight: 34,
+    lineHeight: 32,
   },
   subtitle: {
-    fontSize: 13,
-    fontFamily: 'Pretendard-Regular',
-    color: '#9A9AB3',
-    textAlign: 'center',
+    fontSize: 16,
+    fontFamily: 'Pretendard-Medium',
+    color: '#C3C3D8',
   },
-  mysteryArea: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 24 },
-  mysteryBox:  { borderRadius: 28, overflow: 'hidden' },
-  boxGradient: {
-    width: 180,
-    height: 180,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
+
+  mysteryArea: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  mysteryBox: {
+    width: 248,
+    height: 186,
+    borderRadius: 32,
+    backgroundColor: '#02061C',
     borderWidth: 1.5,
     borderColor: '#534dfc',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
     shadowColor: '#534dfc',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 24,
     elevation: 12,
   },
-  starEmoji: { fontSize: 64, color: '#acb5ff' },
-  tapHint: {
-    fontSize: 13,
-    fontFamily: 'Pretendard-Regular',
-    color: '#636887',
-    letterSpacing: 0.2,
+  boxGlow: {
+    position: 'absolute',
+    top: -20,
+    width: 218,
+    height: 108,
+    borderRadius: 109,
+    backgroundColor: 'rgba(118,125,255,0.4)',
   },
+  questionMark: {
+    fontSize: 56,
+    color: '#ACB5FF',
+    fontFamily: 'Pretendard-Bold',
+  },
+
   revealArea: { flex: 1, paddingHorizontal: 20 },
-  cardScroll: { paddingBottom: 32 },
-  contentCard: {
-    backgroundColor: '#272936',
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#2D3052',
-    marginBottom: 14,
-  },
-  contentImage: { width: '100%', height: 200 },
-  tagSection: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 4,
-  },
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  cardScroll: { paddingBottom: 32, gap: 14 },
+
+  // 태그 칩 — #534DFC 배경
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tagChip: {
-    backgroundColor: '#2D3052',
-    borderRadius: 100,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    backgroundColor: '#534DFC',
+    borderRadius: 50,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  tagChipText: { fontSize: 12, color: '#acb5ff', fontFamily: 'Pretendard-Medium' },
+  tagChipText: { fontSize: 12, color: '#fbfcfe', fontFamily: 'Pretendard-Medium' },
+
+  // 이미지
+  contentImage: { width: '100%', height: 200, borderRadius: 16 },
+
+  // 본문 — 22px SemiBold
   contentBody: {
+    fontSize: 22,
+    fontFamily: 'Pretendard-SemiBold',
+    color: '#fbfcfe',
+    lineHeight: 34,
+  },
+
+  // 메모 독립 카드
+  memoCard: {
+    backgroundColor: '#2D3052',
+    borderRadius: 11,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  memoText: {
     fontSize: 16,
     color: '#fbfcfe',
-    lineHeight: 26,
+    lineHeight: 24,
     fontFamily: 'Pretendard-Regular',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 4,
   },
-  memoSection: {
-    borderTopWidth: 1,
-    borderTopColor: '#2D3052',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 12,
-    gap: 6,
-  },
-  memoLabel: { fontSize: 11, color: '#636887', fontFamily: 'Pretendard-Medium' },
-  memoText: { fontSize: 13, color: '#9A9AB3', lineHeight: 20, fontFamily: 'Pretendard-Regular' },
+
+  // 날짜 + 상세보기
   dateRow: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#2D3052',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
-  contentDate: { fontSize: 12, color: '#636887', fontFamily: 'Pretendard-Regular' },
+  contentDate: { fontSize: 12, color: '#9A9AB3', fontFamily: 'Pretendard-Regular' },
+
+  // 빈 상태
   emptyCard: {
     backgroundColor: '#272936',
     borderRadius: 20,
@@ -416,14 +411,4 @@ const styles = StyleSheet.create({
   emptyIcon:     { fontSize: 48 },
   emptyTitle:    { fontSize: 18, fontFamily: 'Pretendard-SemiBold', color: '#fbfcfe' },
   emptySubtitle: { fontSize: 13, color: '#9A9AB3', textAlign: 'center', fontFamily: 'Pretendard-Regular' },
-  detailBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#534dfc',
-    borderRadius: 14,
-    paddingVertical: 16,
-  },
-  detailBtnText: { fontSize: 15, color: '#fbfcfe', fontFamily: 'Pretendard-SemiBold' },
 })

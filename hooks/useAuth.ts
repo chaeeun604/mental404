@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Platform } from 'react-native'
 import { Session, AuthChangeEvent } from '@supabase/supabase-js'
 import * as WebBrowser from 'expo-web-browser'
 import * as Linking from 'expo-linking'
@@ -39,6 +40,17 @@ export function useAuth() {
   }
 
   const signInWithKakao = async () => {
+    if (Platform.OS === 'web') {
+      // Web: 페이지 전체를 카카오 로그인으로 리다이렉트
+      // 로그인 완료 후 Supabase가 URL의 토큰을 자동으로 감지(detectSessionInUrl: true)
+      await supabase.auth.signInWithOAuth({
+        provider: 'kakao',
+        options: { redirectTo: window.location.origin },
+      })
+      return
+    }
+
+    // Native: 인앱 브라우저로 카카오 로그인 후 딥링크로 토큰 수신
     const redirectTo = Linking.createURL('auth-callback')
 
     const { data, error } = await supabase.auth.signInWithOAuth({

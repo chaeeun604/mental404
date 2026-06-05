@@ -12,6 +12,7 @@ import {
   Platform,
   PanResponder,
   Animated,
+  type ScrollView as ScrollViewType,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -64,7 +65,10 @@ function truncate(text: string, max: number) {
 export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const { session } = useAuth()
   const userId = session?.user?.id ?? ''
-  const username = session?.user?.email?.split('@')[0] ?? '별님'
+  const username = session?.user?.user_metadata?.full_name
+    ?? session?.user?.user_metadata?.name
+    ?? session?.user?.email?.split('@')[0]
+    ?? '별님'
   const { tags, loading: tagsLoading } = useTags(userId)
   const [contents, setContents] = useState<ContentWithTags[]>([])
   const [contentsLoading, setContentsLoading] = useState(true)
@@ -72,6 +76,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const [currentTagIdx, setCurrentTagIdx] = useState(0)
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
   const [tutorialStep, setTutorialStep] = useState<0 | 1 | 2>(0)
+  const listScrollRef = useRef<ScrollViewType>(null)
 
   const loadContents = useCallback(() => {
     if (!userId) return
@@ -82,11 +87,14 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
       .finally(() => setContentsLoading(false))
   }, [userId])
 
-  // 화면 포커스 시 항상 리로드 (삭제 후 복귀 등)
+  // 화면 포커스 시 항상 리로드, 리스트뷰면 최상단으로
   useFocusEffect(
     useCallback(() => {
       loadContents()
-    }, [loadContents])
+      if (activeTab === 'list') {
+        listScrollRef.current?.scrollTo({ y: 0, animated: false })
+      }
+    }, [loadContents, activeTab])
   )
 
   // 홈 최초 진입 시 튜토리얼
@@ -245,7 +253,8 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
       month: 'long', day: 'numeric',
     })
 
-    if (item.type === 'image' && item.image_url) {
+    const imageUrl = item.image_url && !item.image_url.startsWith('blob:') ? item.image_url : null
+    if (item.type === 'image' && imageUrl) {
       // Figma: full-width image card with dark overlay, date at bottom-left
       return (
         <TouchableOpacity
@@ -254,8 +263,25 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           onPress={() => navigation.navigate('ContentDetail', { contentId: item.id })}
           activeOpacity={0.85}
         >
-          <Image source={{ uri: item.image_url }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+          <Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
           <View style={styles.listCardOverlay} />
+          <View style={styles.listDateRow}>
+            <Ionicons name="time-outline" size={16} color="#9A9FB3" />
+            <Text style={styles.listDate}>{dateStr}</Text>
+          </View>
+        </TouchableOpacity>
+      )
+    }
+    if (item.type === 'image' && !imageUrl) {
+      // blob: URL이거나 없는 경우 텍스트 카드로 폴백
+      return (
+        <TouchableOpacity
+          key={item.id}
+          style={styles.listCardText}
+          onPress={() => navigation.navigate('ContentDetail', { contentId: item.id })}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="image-outline" size={20} color="#9A9FB3" />
           <View style={styles.listDateRow}>
             <Ionicons name="time-outline" size={16} color="#9A9FB3" />
             <Text style={styles.listDate}>{dateStr}</Text>
@@ -285,7 +311,12 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
 
   const renderListView = () => {
     return (
-      <ScrollView style={styles.flex} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={listScrollRef}
+        style={styles.flex}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      >
         {contentsLoading ? (
           <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
         ) : listContents.length === 0 ? (
@@ -555,7 +586,7 @@ const styles = StyleSheet.create({
     paddingTop: 2,
     fontFamily: 'Pretendard-Regular',
   },
-  listContent: { paddingHorizontal: 20, paddingBottom: 24, gap: 12 },
+  listContent: { paddingHorizontal: 20, paddingBottom: 40, gap: 12 },
 
   // Image card: full-width, image fills card, overlay + date bottom-left
   listCardImage: {

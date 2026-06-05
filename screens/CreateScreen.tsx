@@ -119,7 +119,15 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
       setSavedContent(result)
       setStep(4)
     } catch (e: any) {
-      Alert.alert('오류', e.message)
+      const msg: string = e?.message ?? ''
+      if (msg.includes('row-level-security') || msg.includes('violates')) {
+        Alert.alert(
+          '업로드 오류',
+          '이미지 업로드 권한이 없어요.\nSupabase Storage 버킷의 RLS 정책을 확인해주세요.',
+        )
+      } else {
+        Alert.alert('오류', msg || '저장에 실패했어요.')
+      }
     } finally {
       setSaving(false)
     }

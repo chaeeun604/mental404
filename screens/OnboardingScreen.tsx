@@ -8,7 +8,8 @@ import type { ScreenProps } from '../types/navigation'
 
 export default function OnboardingScreen({ navigation }: ScreenProps<'Onboarding'>) {
   const { session } = useAuth()
-  const username = session?.user?.user_metadata?.name
+  const username = session?.user?.user_metadata?.full_name
+    ?? session?.user?.user_metadata?.name
     ?? session?.user?.email?.split('@')[0]
     ?? '별님'
 

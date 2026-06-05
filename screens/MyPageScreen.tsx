@@ -7,19 +7,40 @@ import {
   Switch,
   Alert,
   ScrollView,
+  Platform,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
+import * as SecureStore from 'expo-secure-store'
 import { useAuth } from '../hooks/useAuth'
 import { getUserSettings, upsertUserSettings } from '../api/userSettings'
 import { scheduleSmartNotification, cancelAllNotifications } from '../api/notification'
 import { Colors } from '../constants/colors'
 import type { ScreenProps } from '../types/navigation'
 
+const REPORT_NOTIF_KEY = 'morbit_report_notif_enabled'
+
+async function getReportNotifSetting(): Promise<boolean> {
+  try {
+    if (Platform.OS === 'web') return localStorage.getItem(REPORT_NOTIF_KEY) === 'true'
+    return (await SecureStore.getItemAsync(REPORT_NOTIF_KEY)) === 'true'
+  } catch { return false }
+}
+
+async function setReportNotifSetting(val: boolean): Promise<void> {
+  try {
+    if (Platform.OS === 'web') localStorage.setItem(REPORT_NOTIF_KEY, String(val))
+    else await SecureStore.setItemAsync(REPORT_NOTIF_KEY, String(val))
+  } catch {}
+}
+
 export default function MyPageScreen({ navigation }: ScreenProps<'MyPage'>) {
   const { session, signOut } = useAuth()
-  const username = session?.user?.email?.split('@')[0] ?? '별님'
+  const username = session?.user?.user_metadata?.full_name
+    ?? session?.user?.user_metadata?.name
+    ?? session?.user?.email?.split('@')[0]
+    ?? '별님'
   const [shootingStarNotif, setShootingStarNotif] = useState(false)
   const [reportNotif, setReportNotif] = useState(false)
 
@@ -28,6 +49,7 @@ export default function MyPageScreen({ navigation }: ScreenProps<'MyPage'>) {
     getUserSettings(session.user.id).then((s) => {
       if (s) setShootingStarNotif(s.notification_enabled ?? false)
     })
+    getReportNotifSetting().then(setReportNotif)
   }, [session?.user?.id])
 
   const handleShootingStarToggle = async (val: boolean) => {
@@ -45,6 +67,7 @@ export default function MyPageScreen({ navigation }: ScreenProps<'MyPage'>) {
 
   const handleReportToggle = async (val: boolean) => {
     setReportNotif(val)
+    await setReportNotifSetting(val)
     if (val) {
       Alert.alert('알림 설정', '리포트 알림이 켜졌어요.\n새 리포트가 생성되면 알려드릴게요.')
     }
