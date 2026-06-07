@@ -72,7 +72,13 @@ export function useAuth() {
     })
     if (error || !data.url) throw error ?? new Error('OAuth URL 생성 실패')
 
-    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo)
+    // 웹과 동일하게 Supabase 기본 account_email scope 제거 (카카오 비즈앱 미등록)
+    const nativeUrl = new URL(data.url)
+    const nativeScope = nativeUrl.searchParams.get('scope') ?? ''
+    const nativeCleaned = nativeScope.split(/[\s+]/).filter(s => s !== 'account_email').join('+')
+    nativeUrl.searchParams.set('scope', nativeCleaned)
+
+    const result = await WebBrowser.openAuthSessionAsync(nativeUrl.toString(), redirectTo)
     if (result.type !== 'success') return
 
     // Supabase는 토큰을 hash fragment 또는 query string으로 전달
