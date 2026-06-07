@@ -47,7 +47,6 @@ export function useAuth() {
         provider: 'kakao',
         options: {
           redirectTo: window.location.origin,
-          scopes: 'profile',
         },
       })
       return
@@ -61,7 +60,6 @@ export function useAuth() {
       options: {
         redirectTo,
         skipBrowserRedirect: true,
-        scopes: 'profile',
       },
     })
     if (error || !data.url) throw error ?? new Error('OAuth URL 생성 실패')
