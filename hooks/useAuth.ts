@@ -45,7 +45,10 @@ export function useAuth() {
       // 로그인 완료 후 Supabase가 URL의 토큰을 자동으로 감지(detectSessionInUrl: true)
       await supabase.auth.signInWithOAuth({
         provider: 'kakao',
-        options: { redirectTo: window.location.origin },
+        options: {
+          redirectTo: window.location.origin,
+          scopes: 'profile_nickname profile_image',
+        },
       })
       return
     }
@@ -55,7 +58,11 @@ export function useAuth() {
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'kakao',
-      options: { redirectTo, skipBrowserRedirect: true },
+      options: {
+        redirectTo,
+        skipBrowserRedirect: true,
+        scopes: 'profile_nickname profile_image',
+      },
     })
     if (error || !data.url) throw error ?? new Error('OAuth URL 생성 실패')
 
