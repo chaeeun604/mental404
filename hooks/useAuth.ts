@@ -41,14 +41,22 @@ export function useAuth() {
 
   const signInWithKakao = async () => {
     if (Platform.OS === 'web') {
-      // Web: 페이지 전체를 카카오 로그인으로 리다이렉트
-      // 로그인 완료 후 Supabase가 URL의 토큰을 자동으로 감지(detectSessionInUrl: true)
-      await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'kakao',
         options: {
           redirectTo: window.location.origin,
+          skipBrowserRedirect: true,
         },
       })
+      if (error || !data.url) throw error ?? new Error('OAuth URL 생성 실패')
+
+      // Supabase가 기본으로 추가하는 account_email scope 제거 (카카오 비즈앱 미등록)
+      const url = new URL(data.url)
+      const scope = url.searchParams.get('scope') ?? ''
+      const cleaned = scope.split(/[\s+]/).filter(s => s !== 'account_email').join('+')
+      url.searchParams.set('scope', cleaned)
+
+      window.location.href = url.toString()
       return
     }
 
