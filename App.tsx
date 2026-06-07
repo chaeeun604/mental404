@@ -1,33 +1,66 @@
+import { Platform } from 'react-native'
 import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { ActivityIndicator, View } from 'react-native'
-import { useAuth } from './hooks/useAuth'
-import AuthScreen from './screens/AuthScreen'
-import HomeScreen from './screens/HomeScreen'
-import CreateScreen from './screens/CreateScreen'
-import BrowseScreen from './screens/BrowseScreen'
-import ReportScreen from './screens/ReportScreen'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { useFonts } from 'expo-font'
+import type { RootStackParamList } from './types/navigation'
 
-const Stack = createNativeStackNavigator()
+// expo-notifications는 web을 지원하지 않으므로 native에서만 초기화
+if (Platform.OS !== 'web') {
+  const Notifications = require('expo-notifications')
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  })
+}
+
+import SplashScreen from './screens/SplashScreen'
+import AuthScreen from './screens/AuthScreen'
+import OnboardingScreen from './screens/OnboardingScreen'
+import HomeScreen from './screens/HomeScreen'
+import ShootingStarScreen from './screens/ShootingStarScreen'
+import CreateScreen from './screens/CreateScreen'
+import ContentDetailScreen from './screens/ContentDetailScreen'
+import ReportScreen from './screens/ReportScreen'
+import MyPageScreen from './screens/MyPageScreen'
+
+const Stack = createNativeStackNavigator<RootStackParamList>()
 
 export default function App() {
-  const { session, loading } = useAuth()
-  if (loading) return <View style={{ flex:1, justifyContent:'center', alignItems:'center' }}><ActivityIndicator /></View>
+  const [fontsLoaded, fontError] = useFonts({
+    'Pretendard-Regular':  require('./assets/fonts/Pretendard-Regular.ttf'),
+    'Pretendard-Medium':   require('./assets/fonts/Pretendard-Medium.ttf'),
+    'Pretendard-SemiBold': require('./assets/fonts/Pretendard-SemiBold.ttf'),
+    'Pretendard-Bold':     require('./assets/fonts/Pretendard-Bold.ttf'),
+  })
+
+  if (!fontsLoaded && !fontError) return null
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {session ? (
-          <>
-            <Stack.Screen name="Home" component={HomeScreen} />
-            <Stack.Screen name="Create" component={CreateScreen} />
-            <Stack.Screen name="Browse" component={BrowseScreen} />
-            <Stack.Screen name="Report" component={ReportScreen} />
-          </>
-        ) : (
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <Stack.Navigator
+          initialRouteName="Splash"
+          screenOptions={{ headerShown: false, animation: 'fade' }}
+        >
+          <Stack.Screen name="Splash" component={SplashScreen} />
           <Stack.Screen name="Auth" component={AuthScreen} />
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen
+            name="ShootingStar"
+            component={ShootingStarScreen}
+            options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+          />
+          <Stack.Screen name="Create" component={CreateScreen} />
+          <Stack.Screen name="ContentDetail" component={ContentDetailScreen} />
+          <Stack.Screen name="Report" component={ReportScreen} />
+          <Stack.Screen name="MyPage" component={MyPageScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
   )
 }
