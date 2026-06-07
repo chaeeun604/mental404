@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Image,
   TextInput,
+  Platform,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -81,20 +82,21 @@ export default function ContentDetailScreen({
   }
 
   const handleDelete = () => {
+    const doDelete = async () => {
+      try {
+        await deleteContent(contentId)
+        navigation.goBack()
+      } catch (e: any) {
+        Alert.alert('오류', e.message)
+      }
+    }
+    if (Platform.OS === 'web') {
+      if (window.confirm('이 기억을 삭제할까요?\n삭제한 기록은 복구할 수 없어요.')) doDelete()
+      return
+    }
     Alert.alert('기록 삭제', '이 기억을 삭제할까요?\n삭제한 기록은 복구할 수 없어요.', [
       { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteContent(contentId)
-            navigation.goBack()
-          } catch (e: any) {
-            Alert.alert('오류', e.message)
-          }
-        },
-      },
+      { text: '삭제', style: 'destructive', onPress: doDelete },
     ])
   }
 

@@ -74,16 +74,17 @@ export default function MyPageScreen({ navigation }: ScreenProps<'MyPage'>) {
   }
 
   const handleSignOut = () => {
+    const doSignOut = async () => {
+      try { await signOut() } catch {}
+      navigation.reset({ index: 0, routes: [{ name: 'Auth' }] })
+    }
+    if (Platform.OS === 'web') {
+      if (window.confirm('로그아웃 하시겠어요?')) doSignOut()
+      return
+    }
     Alert.alert('로그아웃', '로그아웃 하시겠어요?', [
       { text: '취소', style: 'cancel' },
-      {
-        text: '로그아웃',
-        style: 'destructive',
-        onPress: async () => {
-          try { await signOut() } catch {}
-          navigation.reset({ index: 0, routes: [{ name: 'Auth' }] })
-        },
-      },
+      { text: '로그아웃', style: 'destructive', onPress: doSignOut },
     ])
   }
 
