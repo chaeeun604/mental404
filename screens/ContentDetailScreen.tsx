@@ -63,22 +63,20 @@ export default function ContentDetailScreen({
   }
 
   const handleCancelEdit = () => {
-    if (hasChanges) {
-      Alert.alert('편집 취소', '변경 사항을 저장하지 않을까요?', [
-        { text: '계속 편집', style: 'cancel' },
-        {
-          text: '취소',
-          style: 'destructive',
-          onPress: () => {
-            setEditBody(content?.body ?? '')
-            setEditMemo(content?.memo ?? '')
-            setEditing(false)
-          },
-        },
-      ])
-    } else {
+    const doCancel = () => {
+      setEditBody(content?.body ?? '')
+      setEditMemo(content?.memo ?? '')
       setEditing(false)
     }
+    if (!hasChanges) { doCancel(); return }
+    if (Platform.OS === 'web') {
+      if (window.confirm('변경 사항을 저장하지 않을까요?')) doCancel()
+      return
+    }
+    Alert.alert('편집 취소', '변경 사항을 저장하지 않을까요?', [
+      { text: '계속 편집', style: 'cancel' },
+      { text: '취소', style: 'destructive', onPress: doCancel },
+    ])
   }
 
   const handleDelete = () => {
