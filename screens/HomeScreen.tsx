@@ -122,7 +122,9 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
   const [tutorialStep, setTutorialStep] = useState<0 | 1 | 2 | 3>(0)
   const [hlPlanetY, setHlPlanetY] = useState<number | null>(null)
+  const [hlArrowY, setHlArrowY]   = useState<number | null>(null)
   const planetContainerRef = useRef<View>(null)
+  const arrowRowRef        = useRef<View>(null)
   const listScrollRef = useRef<ScrollViewType>(null)
 
   const loadContents = useCallback(() => {
@@ -179,7 +181,8 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const centerOffset = Math.max(0, (graphicAreaH - BLOCK_H) / 2)
   const bannerTop = insets.top + HEADER_H
   const planetTopFallback = insets.top + HEADER_H + BANNER_H + centerOffset
-  const arrowTop = (hlPlanetY ?? planetTopFallback) + 380 + 16
+  const arrowTopFallback  = planetTopFallback + 380 + 16
+  const effectiveArrowTop = hlArrowY ?? arrowTopFallback
 
   const listContents = selectedTagId
     ? contents.filter((c) => c.content_tags?.some((ct) => ct.tag_id === selectedTagId))
@@ -314,7 +317,13 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
         </View>
 
         {/* Arrow navigation */}
-        <View style={styles.arrowRow}>
+        <View
+          ref={arrowRowRef}
+          style={styles.arrowRow}
+          onLayout={() => {
+            arrowRowRef.current?.measureInWindow((_, y) => setHlArrowY(y))
+          }}
+        >
           <TouchableOpacity style={styles.arrowBtn} onPress={goLeft} disabled={isTutorial}>
             <Ionicons name="chevron-back" size={22} color={Colors.textSecondary} />
           </TouchableOpacity>
@@ -437,16 +446,6 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           onPress={advanceTutorial}
           activeOpacity={1}
         >
-          {tutorialStep === 2 && (
-            <View style={styles.tooltipWrapper2}>
-              <View style={styles.tooltipBox}>
-                <Text style={styles.tooltipText}>
-                  {'선택한 태그와 같은 상황에 별을\n꺼내보며 마음을 관리해요.'}
-                </Text>
-              </View>
-              <View style={styles.tooltipCaretDown} />
-            </View>
-          )}
           {tutorialStep === 3 && (
             <View style={styles.tooltipWrapper3}>
               <View style={styles.tooltipCaretUp} />
@@ -510,10 +509,25 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
         </View>
       )}
 
+      {/* Step 2 툴팁 — zIndex 102 */}
+      {tutorialStep === 2 && (
+        <View
+          style={[styles.tooltipWrapper2, { top: effectiveArrowTop - 96 }]}
+          pointerEvents="none"
+        >
+          <View style={styles.tooltipBox}>
+            <Text style={styles.tooltipText}>
+              {'선택한 태그와 같은 상황에 별을\n꺼내보며 마음을 관리해요.'}
+            </Text>
+          </View>
+          <View style={styles.tooltipCaretDown} />
+        </View>
+      )}
+
       {/* Step 2 하이라이트: 태그 화살표 내비게이션 */}
       {tutorialStep === 2 && (
         <View
-          style={{ position: 'absolute', top: arrowTop, left: 0, right: 0, zIndex: 101, alignItems: 'center' }}
+          style={{ position: 'absolute', top: effectiveArrowTop, left: 0, right: 0, zIndex: 101, alignItems: 'center' }}
           pointerEvents="none"
         >
           <View style={styles.arrowRow}>
@@ -810,6 +824,7 @@ const styles = StyleSheet.create({
     left: (width - 210) / 2,
     width: 210,
     alignItems: 'center',
+    zIndex: 102,
   },
   tooltipWrapper3: {
     position: 'absolute',
