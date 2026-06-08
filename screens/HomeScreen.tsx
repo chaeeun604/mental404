@@ -437,16 +437,6 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           onPress={advanceTutorial}
           activeOpacity={1}
         >
-          {tutorialStep === 1 && (
-            <View style={styles.tooltipWrapper1}>
-              <View style={styles.tooltipBox}>
-                <Text style={styles.tooltipText}>
-                  {'기록한 별은 마음의 자산이 되어\n항상 우리 곁에 떠 있어요.'}
-                </Text>
-              </View>
-              <View style={styles.tooltipCaretDown} />
-            </View>
-          )}
           {tutorialStep === 2 && (
             <View style={styles.tooltipWrapper2}>
               <View style={styles.tooltipBox}>
@@ -468,6 +458,24 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
             </View>
           )}
         </TouchableOpacity>
+      )}
+
+      {/* Step 1 툴팁 — 행성 하이라이트보다 위(zIndex 102)에 렌더링 */}
+      {tutorialStep === 1 && (
+        <View
+          style={[
+            styles.tooltipWrapper1,
+            { top: (hlPlanetY ?? planetTopFallback) - 96 },
+          ]}
+          pointerEvents="none"
+        >
+          <View style={styles.tooltipBox}>
+            <Text style={styles.tooltipText}>
+              {'기록한 별은 마음의 자산이 되어\n항상 우리 곁에 떠 있어요.'}
+            </Text>
+          </View>
+          <View style={styles.tooltipCaretDown} />
+        </View>
       )}
 
       {/* Step 1 하이라이트: 행성 + 버블 — measureInWindow로 측정된 정확한 Y 사용 */}
@@ -794,6 +802,7 @@ const styles = StyleSheet.create({
     left: (width - 210) / 2,
     width: 210,
     alignItems: 'center',
+    zIndex: 102,
   },
   tooltipWrapper2: {
     position: 'absolute',
