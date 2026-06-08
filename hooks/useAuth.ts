@@ -81,12 +81,23 @@ export function useAuth() {
     const result = await WebBrowser.openAuthSessionAsync(nativeUrl.toString(), redirectTo)
     if (result.type !== 'success') return
 
-    // Supabase는 토큰을 hash fragment 또는 query string으로 전달
     const raw = result.url
-    const fragment = raw.includes('#') ? raw.split('#')[1] : raw.split('?')[1]
-    const params = new URLSearchParams(fragment ?? '')
-    const accessToken  = params.get('access_token')
-    const refreshToken = params.get('refresh_token')
+
+    // PKCE flow: ?code=... (Supabase 기본)
+    const queryString = raw.includes('?') ? raw.split('?')[1].split('#')[0] : ''
+    const queryParams = new URLSearchParams(queryString)
+    const code = queryParams.get('code')
+    if (code) {
+      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+      if (exchangeError) throw exchangeError
+      return
+    }
+
+    // Implicit flow: #access_token=...&refresh_token=...
+    const fragment = raw.includes('#') ? raw.split('#')[1] : ''
+    const hashParams = new URLSearchParams(fragment)
+    const accessToken  = hashParams.get('access_token')
+    const refreshToken = hashParams.get('refresh_token')
 
     if (!accessToken || !refreshToken) throw new Error('토큰을 받아오지 못했어요.')
 

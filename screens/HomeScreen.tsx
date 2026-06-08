@@ -75,7 +75,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const [activeTab, setActiveTab]     = useState<'report' | 'graphic' | 'list'>('graphic')
   const [currentTagIdx, setCurrentTagIdx] = useState(0)
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
-  const [tutorialStep, setTutorialStep] = useState<0 | 1 | 2>(0)
+  const [tutorialStep, setTutorialStep] = useState<0 | 1 | 2 | 3>(0)
   const listScrollRef = useRef<ScrollViewType>(null)
 
   const loadContents = useCallback(() => {
@@ -338,6 +338,8 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const advanceTutorial = () => {
     if (tutorialStep === 1) {
       setTutorialStep(2)
+    } else if (tutorialStep === 2) {
+      setTutorialStep(3)
     } else {
       setTutorialStep(0)
       markTutorialSeen()
@@ -349,7 +351,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
       {/* 별 배경 */}
       <StarField />
 
-      {/* 튜토리얼 오버레이 (2단계) */}
+      {/* 튜토리얼 오버레이 (3단계) */}
       {tutorialStep > 0 && (
         <TouchableOpacity
           style={styles.tutorialOverlay}
@@ -357,18 +359,33 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           activeOpacity={1}
         >
           {tutorialStep === 1 && (
-            <View style={styles.tooltip1}>
-              <Text style={styles.tooltipText}>
-                {'기록한 별은 마음의 자산이 되어\n항상 우리 곁에 떠 있어요.'}
-              </Text>
+            <View style={styles.tooltipWrapper1}>
+              <View style={styles.tooltipBox}>
+                <Text style={styles.tooltipText}>
+                  {'기록한 별은 마음의 자산이 되어\n항상 우리 곁에 떠 있어요.'}
+                </Text>
+              </View>
+              <View style={styles.tooltipCaretDown} />
             </View>
           )}
           {tutorialStep === 2 && (
-            <View style={styles.tooltip2}>
-              <Text style={styles.tooltipText}>
-                {'선택한 태그와 같은 상황에 별을\n꺼내보며 마음을 관리해요.'}
-              </Text>
-              <View style={styles.tooltipCaret} />
+            <View style={styles.tooltipWrapper2}>
+              <View style={styles.tooltipBox}>
+                <Text style={styles.tooltipText}>
+                  {'선택한 태그와 같은 상황에 별을\n꺼내보며 마음을 관리해요.'}
+                </Text>
+              </View>
+              <View style={styles.tooltipCaretDown} />
+            </View>
+          )}
+          {tutorialStep === 3 && (
+            <View style={styles.tooltipWrapper3}>
+              <View style={styles.tooltipCaretUp} />
+              <View style={styles.tooltipBox}>
+                <Text style={styles.tooltipText}>
+                  {'잊고 있던 마음의 자산이 있나요?\n매일 기록했던 별 중 하나를\n랜덤으로 보내드려요.'}
+                </Text>
+              </View>
             </View>
           )}
         </TouchableOpacity>
@@ -624,44 +641,65 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(5,9,40,0.55)',
     zIndex: 100,
   },
-  tooltip1: {
+  tooltipWrapper1: {
     position: 'absolute',
-    top: '28%',
-    left: 24,
-    right: 24,
-    backgroundColor: '#fbfcfe',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-  },
-  tooltip2: {
-    position: 'absolute',
-    bottom: 160,
-    left: 24,
-    right: 24,
-    backgroundColor: '#fbfcfe',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    top: 174,
+    left: (width - 210) / 2,
+    width: 210,
     alignItems: 'center',
   },
-  tooltipCaret: {
+  tooltipWrapper2: {
     position: 'absolute',
-    bottom: -10,
+    top: 505,
+    left: (width - 210) / 2,
+    width: 210,
+    alignItems: 'center',
+  },
+  tooltipWrapper3: {
+    position: 'absolute',
+    top: 210,
+    left: (width - 210) / 2,
+    width: 210,
+    alignItems: 'center',
+  },
+  tooltipBox: {
+    width: 210,
+    backgroundColor: '#fbfcfe',
+    borderRadius: 11,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  tooltipCaretDown: {
     width: 0,
     height: 0,
-    borderLeftWidth: 10,
-    borderRightWidth: 10,
-    borderTopWidth: 10,
+    borderLeftWidth: 11,
+    borderRightWidth: 11,
+    borderTopWidth: 11,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
     borderTopColor: '#fbfcfe',
   },
+  tooltipCaretUp: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 11,
+    borderRightWidth: 11,
+    borderBottomWidth: 11,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#fbfcfe',
+  },
   tooltipText: {
-    fontSize: 15,
-    color: '#1A1C20',
-    fontFamily: 'Pretendard-Medium',
-    lineHeight: 23,
+    fontSize: 14,
+    color: '#1a1c20',
+    fontFamily: 'Pretendard-Regular',
+    lineHeight: 21,
     textAlign: 'center',
   },
 })
