@@ -27,7 +27,7 @@ import ContentBubble from '../components/ContentBubble'
 import GNB from '../components/GNB'
 import { Colors } from '../constants/colors'
 import type { ScreenProps } from '../types/navigation'
-import type { ContentWithTags } from '../types/database'
+import type { ContentWithTags, TagRow } from '../types/database'
 
 const TUTORIAL_KEY = 'morbit_home_tutorial_seen'
 
@@ -62,6 +62,50 @@ function truncate(text: string, max: number) {
   return text.length > max ? text.slice(0, max - 1) + '…' : text
 }
 
+// 튜토리얼용 더미 데이터 — 앱이 채워진 상태를 미리 보여줌
+const MOCK_TAGS: TagRow[] = [
+  { id: 'mt-0', name: '무기력할 때', emoji: '😔', is_default: true, user_id: null },
+  { id: 'mt-1', name: '기쁠 때',     emoji: '😊', is_default: true, user_id: null },
+]
+
+const MOCK_CONTENTS: ContentWithTags[] = [
+  {
+    id: 'mc-0', type: 'text',
+    body: '오늘 하루도 잘 버텼다. 작은 것에도 감사하자.',
+    created_at: '2025-01-05T00:00:00Z',
+    user_id: '', image_url: null, memo: null, source: null, shown_at: null,
+    content_tags: [{ tag_id: 'mt-0', tags: MOCK_TAGS[0] }],
+  },
+  {
+    id: 'mc-1', type: 'text',
+    body: '친구가 갑자기 연락해줘서 기분이 좋아졌다.',
+    created_at: '2025-01-04T00:00:00Z',
+    user_id: '', image_url: null, memo: null, source: null, shown_at: null,
+    content_tags: [{ tag_id: 'mt-0', tags: MOCK_TAGS[0] }],
+  },
+  {
+    id: 'mc-2', type: 'text',
+    body: '산책을 나갔더니 마음이 한결 가벼워졌어.',
+    created_at: '2025-01-03T00:00:00Z',
+    user_id: '', image_url: null, memo: null, source: null, shown_at: null,
+    content_tags: [{ tag_id: 'mt-0', tags: MOCK_TAGS[0] }],
+  },
+  {
+    id: 'mc-3', type: 'text',
+    body: '음악 들으면서 잠깐 쉬었더니 괜찮아졌어.',
+    created_at: '2025-01-02T00:00:00Z',
+    user_id: '', image_url: null, memo: null, source: null, shown_at: null,
+    content_tags: [{ tag_id: 'mt-0', tags: MOCK_TAGS[0] }],
+  },
+  {
+    id: 'mc-4', type: 'text',
+    body: '따뜻한 차 한 잔이 위로가 됐어.',
+    created_at: '2025-01-01T00:00:00Z',
+    user_id: '', image_url: null, memo: null, source: null, shown_at: null,
+    content_tags: [{ tag_id: 'mt-0', tags: MOCK_TAGS[0] }],
+  },
+]
+
 export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const insets = useSafeAreaInsets()
   const { session } = useAuth()
@@ -77,6 +121,8 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const [currentTagIdx, setCurrentTagIdx] = useState(0)
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
   const [tutorialStep, setTutorialStep] = useState<0 | 1 | 2 | 3>(0)
+  const [hlPlanetY, setHlPlanetY] = useState<number | null>(null)
+  const planetContainerRef = useRef<View>(null)
   const listScrollRef = useRef<ScrollViewType>(null)
 
   const loadContents = useCallback(() => {
@@ -109,9 +155,18 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     ? contents.filter((c) => c.content_tags?.some((ct) => ct.tag_id === currentTag.id))
     : []
 
+  // 튜토리얼 중에는 더미 데이터로 배경 렌더링
+  const isTutorial = tutorialStep > 0
+  const displayTags        = isTutorial ? MOCK_TAGS : tags
+  const displayTag         = isTutorial ? MOCK_TAGS[0] : currentTag
+  const displayTagIdx      = isTutorial ? 0 : currentTagIdx
+  const displayTagContents = isTutorial
+    ? MOCK_CONTENTS.filter(c => c.content_tags?.some(ct => ct.tag_id === MOCK_TAGS[0].id))
+    : tagContents
+
   const MAX_SHOWN = 5
-  const shownCards = tagContents.slice(0, MAX_SHOWN)
-  const totalCount = tagContents.length
+  const shownCards = displayTagContents.slice(0, MAX_SHOWN)
+  const totalCount = displayTagContents.length
   const hasOverflow = totalCount > MAX_SHOWN
 
   // 튜토리얼 하이라이트 위치 계산 (런타임 SafeArea 기반)
@@ -123,8 +178,8 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const BLOCK_H = 380 + 16 + ARROW_H
   const centerOffset = Math.max(0, (graphicAreaH - BLOCK_H) / 2)
   const bannerTop = insets.top + HEADER_H
-  const planetTop = insets.top + HEADER_H + BANNER_H + centerOffset
-  const arrowTop = planetTop + 380 + 16
+  const planetTopFallback = insets.top + HEADER_H + BANNER_H + centerOffset
+  const arrowTop = (hlPlanetY ?? planetTopFallback) + 380 + 16
 
   const listContents = selectedTagId
     ? contents.filter((c) => c.content_tags?.some((ct) => ct.tag_id === selectedTagId))
@@ -179,7 +234,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   }
 
   const renderGraphicView = () => {
-    if (tagsLoading || contentsLoading) {
+    if (!isTutorial && (tagsLoading || contentsLoading)) {
       return (
         <View style={styles.loadingCenter}>
           <ActivityIndicator color={Colors.primary} />
@@ -187,7 +242,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
       )
     }
 
-    if (tags.length === 0) {
+    if (!isTutorial && displayTags.length === 0) {
       return (
         <View style={styles.emptyCenter}>
           <Text style={styles.emptyText}>+ 버튼으로 첫 번째{'\n'}별을 기록해보세요.</Text>
@@ -198,7 +253,14 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     return (
       <View style={styles.graphicArea}>
         {/* Planet container — planet centered, bubbles float around it, swipe to change tag */}
-        <View style={styles.planetContainer} {...panResponder.panHandlers}>
+        <View
+          ref={planetContainerRef}
+          style={styles.planetContainer}
+          onLayout={() => {
+            planetContainerRef.current?.measureInWindow((_, y) => setHlPlanetY(y))
+          }}
+          {...panResponder.panHandlers}
+        >
           <Animated.View style={[styles.planetSlide, { transform: [{ translateX: planetX }] }]}>
             {/* Centered planet */}
             <TouchableOpacity
@@ -210,7 +272,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
                 }
               }}
             >
-              <PlanetGraphic tagIndex={currentTagIdx} size={PLANET_SIZE} />
+              <PlanetGraphic tagIndex={displayTagIdx} size={PLANET_SIZE} />
             </TouchableOpacity>
 
             {/* Floating content bubbles */}
@@ -218,7 +280,9 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
               <TouchableOpacity
                 key={item.id}
                 style={[styles.bubble, BUBBLE_POSITIONS[idx]]}
-                onPress={() => navigation.navigate('ContentDetail', { contentId: item.id })}
+                onPress={() => {
+                  if (!isTutorial) navigation.navigate('ContentDetail', { contentId: item.id })
+                }}
                 activeOpacity={0.8}
               >
                 <ContentBubble item={item} />
@@ -230,8 +294,10 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
               <TouchableOpacity
                 style={styles.overflowBadge}
                 onPress={() => {
-                  setSelectedTagId(currentTag?.id ?? null)
-                  setActiveTab('list')
+                  if (!isTutorial) {
+                    setSelectedTagId(currentTag?.id ?? null)
+                    setActiveTab('list')
+                  }
                 }}
                 activeOpacity={0.85}
               >
@@ -249,11 +315,11 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
 
         {/* Arrow navigation */}
         <View style={styles.arrowRow}>
-          <TouchableOpacity style={styles.arrowBtn} onPress={goLeft}>
+          <TouchableOpacity style={styles.arrowBtn} onPress={goLeft} disabled={isTutorial}>
             <Ionicons name="chevron-back" size={22} color={Colors.textSecondary} />
           </TouchableOpacity>
-          <Text style={styles.arrowLabel}>{currentTag?.name ?? ''}</Text>
-          <TouchableOpacity style={styles.arrowBtn} onPress={goRight}>
+          <Text style={styles.arrowLabel}>{displayTag?.name ?? ''}</Text>
+          <TouchableOpacity style={styles.arrowBtn} onPress={goRight} disabled={isTutorial}>
             <Ionicons name="chevron-forward" size={22} color={Colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -404,16 +470,16 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
         </TouchableOpacity>
       )}
 
-      {/* Step 1 하이라이트: 행성 + 버블 */}
-      {tutorialStep === 1 && !tagsLoading && !contentsLoading && tags.length > 0 && (
+      {/* Step 1 하이라이트: 행성 + 버블 — measureInWindow로 측정된 정확한 Y 사용 */}
+      {tutorialStep === 1 && (
         <View
-          style={{ position: 'absolute', top: planetTop, width, height: 380, zIndex: 101 }}
+          style={{ position: 'absolute', top: hlPlanetY ?? planetTopFallback, width, height: 380, zIndex: 101 }}
           pointerEvents="none"
         >
           <View style={styles.planetContainer}>
             <Animated.View style={[styles.planetSlide, { transform: [{ translateX: planetX }] }]}>
               <View style={styles.planetCenter}>
-                <PlanetGraphic tagIndex={currentTagIdx} size={PLANET_SIZE} />
+                <PlanetGraphic tagIndex={displayTagIdx} size={PLANET_SIZE} />
               </View>
               {shownCards.map((item, idx) => (
                 <View key={item.id} style={[styles.bubble, BUBBLE_POSITIONS[idx]]}>
@@ -446,7 +512,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
             <View style={styles.arrowBtn}>
               <Ionicons name="chevron-back" size={22} color={Colors.textSecondary} />
             </View>
-            <Text style={styles.arrowLabel}>{currentTag?.name ?? ''}</Text>
+            <Text style={styles.arrowLabel}>{displayTag?.name ?? ''}</Text>
             <View style={styles.arrowBtn}>
               <Ionicons name="chevron-forward" size={22} color={Colors.textSecondary} />
             </View>
