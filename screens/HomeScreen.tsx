@@ -16,7 +16,7 @@ import {
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as SecureStore from 'expo-secure-store'
 import { useAuth } from '../hooks/useAuth'
 import { useTags } from '../hooks/useTags'
@@ -45,7 +45,7 @@ async function markTutorialSeen(): Promise<void> {
   } catch {}
 }
 
-const { width } = Dimensions.get('window')
+const { width, height } = Dimensions.get('window')
 const PLANET_SIZE = 290
 
 // 버블 위치 — 행성 위에 고르게 분포 (피그마 기준)
@@ -63,6 +63,7 @@ function truncate(text: string, max: number) {
 }
 
 export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
+  const insets = useSafeAreaInsets()
   const { session } = useAuth()
   const userId = session?.user?.id ?? ''
   const username = session?.user?.user_metadata?.full_name
@@ -107,6 +108,23 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const tagContents = currentTag
     ? contents.filter((c) => c.content_tags?.some((ct) => ct.tag_id === currentTag.id))
     : []
+
+  const MAX_SHOWN = 5
+  const shownCards = tagContents.slice(0, MAX_SHOWN)
+  const totalCount = tagContents.length
+  const hasOverflow = totalCount > MAX_SHOWN
+
+  // 튜토리얼 하이라이트 위치 계산 (런타임 SafeArea 기반)
+  const HEADER_H = 60
+  const BANNER_H = 62  // bannerGradient(56) + marginBottom(6)
+  const GNB_H = 16 + 56 + Math.max(insets.bottom, 20)
+  const graphicAreaH = height - insets.top - HEADER_H - BANNER_H - GNB_H
+  const ARROW_H = 38  // arrowBtn padding(8)*2 + icon(22)
+  const BLOCK_H = 380 + 16 + ARROW_H
+  const centerOffset = Math.max(0, (graphicAreaH - BLOCK_H) / 2)
+  const bannerTop = insets.top + HEADER_H
+  const planetTop = insets.top + HEADER_H + BANNER_H + centerOffset
+  const arrowTop = planetTop + 380 + 16
 
   const listContents = selectedTagId
     ? contents.filter((c) => c.content_tags?.some((ct) => ct.tag_id === selectedTagId))
@@ -176,11 +194,6 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
         </View>
       )
     }
-
-    const MAX_SHOWN = 5
-    const shownCards = tagContents.slice(0, MAX_SHOWN)
-    const totalCount = tagContents.length
-    const hasOverflow = totalCount > MAX_SHOWN
 
     return (
       <View style={styles.graphicArea}>
@@ -389,6 +402,74 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
             </View>
           )}
         </TouchableOpacity>
+      )}
+
+      {/* Step 1 하이라이트: 행성 + 버블 */}
+      {tutorialStep === 1 && !tagsLoading && !contentsLoading && tags.length > 0 && (
+        <View
+          style={{ position: 'absolute', top: planetTop, width, height: 380, zIndex: 101 }}
+          pointerEvents="none"
+        >
+          <View style={styles.planetContainer}>
+            <Animated.View style={[styles.planetSlide, { transform: [{ translateX: planetX }] }]}>
+              <View style={styles.planetCenter}>
+                <PlanetGraphic tagIndex={currentTagIdx} size={PLANET_SIZE} />
+              </View>
+              {shownCards.map((item, idx) => (
+                <View key={item.id} style={[styles.bubble, BUBBLE_POSITIONS[idx]]}>
+                  <ContentBubble item={item} />
+                </View>
+              ))}
+              {hasOverflow && (
+                <View style={styles.overflowBadge}>
+                  <LinearGradient
+                    colors={['#3B21FB', '#AEF1FF']}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                    style={styles.overflowGradient}
+                  >
+                    <Text style={styles.overflowText}>+{totalCount}</Text>
+                  </LinearGradient>
+                </View>
+              )}
+            </Animated.View>
+          </View>
+        </View>
+      )}
+
+      {/* Step 2 하이라이트: 태그 화살표 내비게이션 */}
+      {tutorialStep === 2 && (
+        <View
+          style={{ position: 'absolute', top: arrowTop, left: 0, right: 0, zIndex: 101, alignItems: 'center' }}
+          pointerEvents="none"
+        >
+          <View style={styles.arrowRow}>
+            <View style={styles.arrowBtn}>
+              <Ionicons name="chevron-back" size={22} color={Colors.textSecondary} />
+            </View>
+            <Text style={styles.arrowLabel}>{currentTag?.name ?? ''}</Text>
+            <View style={styles.arrowBtn}>
+              <Ionicons name="chevron-forward" size={22} color={Colors.textSecondary} />
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Step 3 하이라이트: 별똥별 배너 */}
+      {tutorialStep === 3 && (
+        <View
+          style={{ position: 'absolute', top: bannerTop, left: 20, right: 20, zIndex: 101, borderRadius: 11, overflow: 'hidden' }}
+          pointerEvents="none"
+        >
+          <LinearGradient
+            colors={['#3B21FB', '#AEF1FF']}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.bannerGradient}
+          >
+            <Text style={styles.bannerText}>✦ 오늘의 별똥별이 도착했어요.</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textPrimary} />
+          </LinearGradient>
+        </View>
       )}
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
