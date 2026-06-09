@@ -23,17 +23,6 @@ export function useAuth() {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password })
-    if (error) throw error
-  }
-
-  const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
-    return data.user
-  }
-
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
@@ -108,5 +97,5 @@ export function useAuth() {
     if (sessionError) throw sessionError
   }
 
-  return { session, loading, signUp, signIn, signOut, signInWithKakao }
+  return { session, loading, signOut, signInWithKakao }
 }
