@@ -31,8 +31,8 @@ import type { ContentWithTags, TagRow } from '../types/database'
 
 const TUTORIAL_KEY = 'morbit_home_tutorial_seen'
 
-const TUTORIAL_IMG_1 = require('../assets/images/튜토리얼1.jpg')
-const TUTORIAL_IMG_2 = require('../assets/images/튜토리얼2.jpg')
+const TUTORIAL_IMG_1 = require('../assets/images/tutorial1.jpg')
+const TUTORIAL_IMG_2 = require('../assets/images/tutorial2.jpg')
 
 async function hasTutorialSeen(): Promise<boolean> {
   try {
