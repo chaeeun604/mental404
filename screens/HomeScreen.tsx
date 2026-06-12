@@ -31,6 +31,9 @@ import type { ContentWithTags, TagRow } from '../types/database'
 
 const TUTORIAL_KEY = 'morbit_home_tutorial_seen'
 
+const TUTORIAL_IMG_1 = require('../assets/images/튜토리얼1.jpg')
+const TUTORIAL_IMG_2 = require('../assets/images/튜토리얼2.jpg')
+
 async function hasTutorialSeen(): Promise<boolean> {
   try {
     if (Platform.OS === 'web') return localStorage.getItem(TUTORIAL_KEY) === 'true'
@@ -71,40 +74,45 @@ const MOCK_TAGS: TagRow[] = [
 const MOCK_CONTENTS: ContentWithTags[] = [
   {
     id: 'mc-0', type: 'text',
-    body: '오늘 하루도 잘 버텼다. 작은 것에도 감사하자.',
+    body: '살아있는 한 희망은 있다',
     created_at: '2025-01-05T00:00:00Z',
     user_id: '', image_url: null, memo: null, source: null, shown_at: null,
     content_tags: [{ tag_id: 'mt-0', tags: MOCK_TAGS[0] }],
   },
   {
     id: 'mc-1', type: 'text',
-    body: '친구가 갑자기 연락해줘서 기분이 좋아졌다.',
+    body: '이 또한 지나가리라.',
     created_at: '2025-01-04T00:00:00Z',
     user_id: '', image_url: null, memo: null, source: null, shown_at: null,
     content_tags: [{ tag_id: 'mt-0', tags: MOCK_TAGS[0] }],
   },
   {
-    id: 'mc-2', type: 'text',
-    body: '산책을 나갔더니 마음이 한결 가벼워졌어.',
+    id: 'mc-2', type: 'image',
+    body: null,
     created_at: '2025-01-03T00:00:00Z',
     user_id: '', image_url: null, memo: null, source: null, shown_at: null,
     content_tags: [{ tag_id: 'mt-0', tags: MOCK_TAGS[0] }],
   },
   {
     id: 'mc-3', type: 'text',
-    body: '음악 들으면서 잠깐 쉬었더니 괜찮아졌어.',
+    body: '피할 수 없으면 즐겨라.',
     created_at: '2025-01-02T00:00:00Z',
     user_id: '', image_url: null, memo: null, source: null, shown_at: null,
     content_tags: [{ tag_id: 'mt-0', tags: MOCK_TAGS[0] }],
   },
   {
-    id: 'mc-4', type: 'text',
-    body: '따뜻한 차 한 잔이 위로가 됐어.',
+    id: 'mc-4', type: 'image',
+    body: null,
     created_at: '2025-01-01T00:00:00Z',
     user_id: '', image_url: null, memo: null, source: null, shown_at: null,
     content_tags: [{ tag_id: 'mt-0', tags: MOCK_TAGS[0] }],
   },
 ]
+
+const MOCK_LOCAL_SOURCES: Record<string, any> = {
+  'mc-2': TUTORIAL_IMG_1,
+  'mc-4': TUTORIAL_IMG_2,
+}
 
 export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const insets = useSafeAreaInsets()
@@ -120,7 +128,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const [activeTab, setActiveTab]     = useState<'report' | 'graphic' | 'list'>('graphic')
   const [currentTagIdx, setCurrentTagIdx] = useState(0)
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
-  const [tutorialStep, setTutorialStep] = useState<0 | 1 | 2 | 3>(0)
+  const [tutorialStep, setTutorialStep] = useState<0 | 1 | 2 | 3 | 4>(0)
   const [hlPlanetY, setHlPlanetY] = useState<number | null>(null)
   const [hlArrowY, setHlArrowY]   = useState<number | null>(null)
   const planetContainerRef = useRef<View>(null)
@@ -288,7 +296,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
                 }}
                 activeOpacity={0.8}
               >
-                <ContentBubble item={item} />
+                <ContentBubble item={item} localSource={isTutorial ? MOCK_LOCAL_SOURCES[item.id] : undefined} />
               </TouchableOpacity>
             ))}
 
@@ -428,6 +436,8 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
       setTutorialStep(2)
     } else if (tutorialStep === 2) {
       setTutorialStep(3)
+    } else if (tutorialStep === 3) {
+      setTutorialStep(4)
     } else {
       setTutorialStep(0)
       markTutorialSeen()
@@ -451,7 +461,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
               <View style={styles.tooltipCaretUp} />
               <View style={styles.tooltipBox}>
                 <Text style={styles.tooltipText}>
-                  {'잊고 있던 마음의 자산이 있나요?\n매일 기록했던 별 중 하나를\n랜덤으로 보내드려요.'}
+                  {'잊고있던 기록들은 하루에 한 번\n별똥별이 되어 찾아와요.'}
                 </Text>
               </View>
             </View>
@@ -470,7 +480,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
         >
           <View style={styles.tooltipBox}>
             <Text style={styles.tooltipText}>
-              {'기록한 별은 마음의 자산이 되어\n항상 우리 곁에 떠 있어요.'}
+              {'위로가 된 글과 사진은 별이 되어\n나의 우주를 채워요.'}
             </Text>
           </View>
           <View style={styles.tooltipCaretDown} />
@@ -490,7 +500,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
               </View>
               {shownCards.map((item, idx) => (
                 <View key={item.id} style={[styles.bubble, BUBBLE_POSITIONS[idx]]}>
-                  <ContentBubble item={item} />
+                  <ContentBubble item={item} localSource={MOCK_LOCAL_SOURCES[item.id]} />
                 </View>
               ))}
               {hasOverflow && (
@@ -517,7 +527,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
         >
           <View style={styles.tooltipBox}>
             <Text style={styles.tooltipText}>
-              {'선택한 태그와 같은 상황에 별을\n꺼내보며 마음을 관리해요.'}
+              {'상황에 맞는 기록들을 꺼내보며\n힘을 얻어요.'}
             </Text>
           </View>
           <View style={styles.tooltipCaretDown} />
@@ -556,6 +566,43 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           >
             <Text style={styles.bannerText}>✦ 오늘의 별똥별이 도착했어요.</Text>
             <Ionicons name="chevron-forward" size={16} color={Colors.textPrimary} />
+          </LinearGradient>
+        </View>
+      )}
+
+      {/* Step 4 툴팁 — + 버튼 위 */}
+      {tutorialStep === 4 && (
+        <View
+          style={[styles.tooltipWrapper4, { bottom: Math.max(insets.bottom, 20) + 16 + 56 + 12 }]}
+          pointerEvents="none"
+        >
+          <View style={styles.tooltipBox}>
+            <Text style={styles.tooltipText}>
+              {'새 별을 기록하고,\n나의 우주를 가득 채워보세요!'}
+            </Text>
+          </View>
+          <View style={styles.tooltipCaretDown} />
+        </View>
+      )}
+
+      {/* Step 4 하이라이트: + 버튼 */}
+      {tutorialStep === 4 && (
+        <View
+          style={{
+            position: 'absolute',
+            right: 20,
+            bottom: Math.max(insets.bottom, 20) + 16,
+            zIndex: 101,
+          }}
+          pointerEvents="none"
+        >
+          <LinearGradient
+            colors={['#3B21FB', '#AEF1FF']}
+            start={{ x: 0.3, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.createBtnHighlight}
+          >
+            <Ionicons name="add" size={24} color="#fbfcfe" />
           </LinearGradient>
         </View>
       )}
@@ -832,6 +879,20 @@ const styles = StyleSheet.create({
     left: (width - 210) / 2,
     width: 210,
     alignItems: 'center',
+  },
+  tooltipWrapper4: {
+    position: 'absolute',
+    right: 20 - (210 - 56) / 2,
+    width: 210,
+    alignItems: 'center',
+    zIndex: 102,
+  },
+  createBtnHighlight: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tooltipBox: {
     width: 210,

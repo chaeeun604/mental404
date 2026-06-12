@@ -1,20 +1,21 @@
-import { View, Text, Image, StyleSheet, Platform } from 'react-native'
+import { View, Text, Image, StyleSheet, Platform, type ImageSourcePropType } from 'react-native'
 import type { ContentWithTags } from '../types/database'
 
 interface Props {
   item: ContentWithTags
+  localSource?: ImageSourcePropType
 }
 
 function truncate(s: string, max: number) {
   return s.length > max ? s.slice(0, max - 1) + '…' : s
 }
 
-export default function ContentBubble({ item }: Props) {
+export default function ContentBubble({ item, localSource }: Props) {
   const imageUrl = item.image_url && !item.image_url.startsWith('blob:') ? item.image_url : null
-  if (item.type === 'image' && imageUrl) {
+  if (item.type === 'image' && (localSource || imageUrl)) {
     return (
       <View style={styles.imagePill}>
-        <Image source={{ uri: imageUrl }} style={styles.thumbnail} />
+        <Image source={localSource ?? { uri: imageUrl! }} style={styles.thumbnail} />
       </View>
     )
   }
