@@ -457,7 +457,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           activeOpacity={1}
         >
           {tutorialStep === 3 && (
-            <View style={styles.tooltipWrapper3}>
+            <View style={[styles.tooltipWrapper3, { top: bannerTop + BANNER_H + 8 }]}>
               <View style={styles.tooltipCaretUp} />
               <View style={styles.tooltipBox}>
                 <Text style={styles.tooltipText}>
@@ -573,15 +573,15 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
       {/* Step 4 툴팁 — + 버튼 위 */}
       {tutorialStep === 4 && (
         <View
-          style={[styles.tooltipWrapper4, { bottom: Math.max(insets.bottom, 20) + 16 + 56 + 12 }]}
+          style={[styles.tooltipWrapper4, { bottom: Math.max(insets.bottom, 20) + 56 + 12 }]}
           pointerEvents="none"
         >
-          <View style={styles.tooltipBox}>
+          <View style={[styles.tooltipBox, { width: 200 }]}>
             <Text style={styles.tooltipText}>
               {'새 별을 기록하고,\n나의 우주를 가득 채워보세요!'}
             </Text>
           </View>
-          <View style={styles.tooltipCaretDown} />
+          <View style={[styles.tooltipCaretDown, { marginLeft: 161 }]} />
         </View>
       )}
 
@@ -591,7 +591,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           style={{
             position: 'absolute',
             right: 20,
-            bottom: Math.max(insets.bottom, 20) + 16,
+            bottom: Math.max(insets.bottom, 20),
             zIndex: 101,
           }}
           pointerEvents="none"
@@ -875,16 +875,15 @@ const styles = StyleSheet.create({
   },
   tooltipWrapper3: {
     position: 'absolute',
-    top: 210,
     left: (width - 210) / 2,
     width: 210,
     alignItems: 'center',
   },
   tooltipWrapper4: {
     position: 'absolute',
-    right: 20 - (210 - 56) / 2,
-    width: 210,
-    alignItems: 'center',
+    right: 20,
+    width: 200,
+    alignItems: 'flex-start',
     zIndex: 102,
   },
   createBtnHighlight: {
