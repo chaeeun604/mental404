@@ -154,10 +154,9 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     }, [loadContents, activeTab])
   )
 
-  // 홈 최초 진입 시 튜토리얼 (개발 중에는 항상 표시)
+  // 홈 최초 진입 시 튜토리얼 (테스트: 항상 표시)
   useEffect(() => {
-    if (__DEV__) { setTutorialStep(1); return }
-    hasTutorialSeen().then(seen => { if (!seen) setTutorialStep(1) })
+    setTutorialStep(1)
   }, [])
 
   const currentTag = tags[currentTagIdx] ?? null
