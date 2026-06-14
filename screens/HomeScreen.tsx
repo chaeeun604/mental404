@@ -204,12 +204,13 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const GNB_H = 16 + 56 + Math.max(insets.bottom, 20)
   const graphicAreaH = height - insets.top - HEADER_H - BANNER_H - GNB_H
   const ARROW_H = 38  // arrowBtn padding(8)*2 + icon(22)
-  const BLOCK_H = 380 + 8 + ARROW_H
-  // 0.15 비율 → 피그마 기준 행성+태그 위치 (위쪽)
-  const centerOffset = Math.max(0, Math.round((graphicAreaH - BLOCK_H) * 0.15))
+  const PLANET_TAG_GAP = 31
+  const BLOCK_H = 380 + PLANET_TAG_GAP + ARROW_H
+  // 0.25 비율 → 행성 위치 (조금 아래)
+  const centerOffset = Math.max(0, Math.round((graphicAreaH - BLOCK_H) * 0.25))
   const bannerTop = insets.top + HEADER_H
   const planetTopFallback = insets.top + HEADER_H + BANNER_H + centerOffset
-  const arrowTopFallback  = planetTopFallback + 380 + 8
+  const arrowTopFallback  = planetTopFallback + 380 + PLANET_TAG_GAP
   // Step1 툴팁: 배너 아래, 첫 버블(container top+52) 바로 위 8px
   const TOOLTIP_H = 71  // box 60 + caret 11
   const tooltip1Top = Math.max(
@@ -752,7 +753,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    gap: 8,
+    gap: 31,
   },
   planetContainer: {
     width: width,
