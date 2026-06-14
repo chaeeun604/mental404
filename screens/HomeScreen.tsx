@@ -212,12 +212,9 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const bannerTop = insets.top + HEADER_H
   const planetTopFallback = insets.top + HEADER_H + BANNER_H + centerOffset
   const arrowTopFallback  = planetTopFallback + 380 + PLANET_TAG_GAP
-  // Step1 툴팁: 배너 아래, 첫 버블(container top+52) 바로 위 8px
+  // Step1 툴팁: 배너 바로 아래 고정 (Figma 기준)
   const TOOLTIP_H = 71  // box 60 + caret 11
-  const tooltip1Top = Math.max(
-    bannerTop + BANNER_H + 8,
-    (hlPlanetY ?? planetTopFallback) + 52 - TOOLTIP_H - 8
-  )
+  const tooltip1Top = bannerTop + BANNER_H + 8
   const effectiveArrowTop = hlArrowY ?? arrowTopFallback
 
   const listContents = selectedTagId
@@ -390,9 +387,8 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           {imageUrl && (
             <Image
               source={{ uri: imageUrl }}
-              style={StyleSheet.absoluteFillObject}
+              style={[StyleSheet.absoluteFillObject, { borderRadius: 15 }]}
               resizeMode="cover"
-              blurRadius={12}
               onError={(e) => console.warn('[ListCard] img err:', imageUrl, e.nativeEvent.error)}
             />
           )}
@@ -855,7 +851,8 @@ const styles = StyleSheet.create({
   },
   listCardImageDim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(5,9,40,0.50)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderRadius: 15,
   },
   // Text card: #2d3052 bg, padded
   listCardText: {
