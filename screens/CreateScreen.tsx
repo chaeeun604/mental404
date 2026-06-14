@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
+import ImageCropModal from '../components/ImageCropModal'
 import { useAuth } from '../hooks/useAuth'
 import { useTags } from '../hooks/useTags'
 import { createContent, uploadImage } from '../api/contents'
@@ -30,6 +31,7 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
   const [imageUri, setImageUri]     = useState<string | null>(null)
   const [imageBase64, setImageBase64] = useState<string | null>(null)
   const [imageAspect, setImageAspect] = useState<number | null>(null)
+  const [rawWebUri, setRawWebUri]   = useState<string | null>(null)
   const [memo, setMemo]             = useState('')
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
   const [saving, setSaving]         = useState(false)
@@ -83,16 +85,26 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.85,
       base64: true,
-      allowsEditing: true,
+      allowsEditing: Platform.OS !== 'web',
     })
     if (!result.canceled && result.assets.length > 0) {
       const asset = result.assets[0]
-      setImageUri(asset.uri)
-      setImageBase64(asset.base64 ?? null)
-      if (asset.width && asset.height) {
-        setImageAspect(asset.width / asset.height)
+      if (Platform.OS === 'web') {
+        // web: open crop modal with raw image
+        setRawWebUri(asset.uri)
+      } else {
+        setImageUri(asset.uri)
+        setImageBase64(asset.base64 ?? null)
+        if (asset.width && asset.height) setImageAspect(asset.width / asset.height)
       }
     }
+  }
+
+  const handleCropConfirm = (uri: string, base64: string) => {
+    setImageUri(uri)
+    setImageBase64(base64)
+    setImageAspect(null)  // cropped image aspect will be computed on render if needed
+    setRawWebUri(null)
   }
 
   const toggleTag = (tagId: string) =>
@@ -485,6 +497,14 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
           </TouchableOpacity>
         </View>
       </SafeAreaView>
+
+      {/* 웹 전용 크롭 모달 */}
+      <ImageCropModal
+        visible={rawWebUri !== null}
+        imageUri={rawWebUri}
+        onConfirm={handleCropConfirm}
+        onCancel={() => setRawWebUri(null)}
+      />
     </View>
   )
 }
