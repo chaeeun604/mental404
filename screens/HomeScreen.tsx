@@ -51,13 +51,15 @@ async function markTutorialSeen(): Promise<void> {
 const { width, height } = Dimensions.get('window')
 const PLANET_SIZE = 290
 
-// 버블 위치 — 피그마 기준, 행성에 밀착
+// 버블 위치 — 피그마 기준, 화면 밖 넘침 방지
+const MAX_BUBBLE_W = 145  // ContentBubble textPill maxWidth
+const SAFE_PAD = 20
 const BUBBLE_POSITIONS: Array<{ top?: number; bottom?: number; left?: number; right?: number }> = [
-  { top: 52,  left: 42 },                          // 상단 왼쪽
-  { top: 88,  left: Math.round(width * 0.50) },    // 상단 오른쪽
-  { top: 128, left: 24 },                          // 중단 왼쪽 (이미지)
-  { top: 162, left: Math.round(width * 0.26) },    // 중앙
-  { top: 210, left: Math.round(width * 0.65) },    // 하단 오른쪽 (이미지)
+  { top: 52,  left: 42 },
+  { top: 88,  left: Math.min(Math.round(width * 0.50), width - MAX_BUBBLE_W - SAFE_PAD) },
+  { top: 128, left: 24 },
+  { top: 162, left: Math.round(width * 0.26) },
+  { top: 210, left: Math.min(Math.round(width * 0.65), width - MAX_BUBBLE_W - SAFE_PAD) },
 ]
 
 function truncate(text: string, max: number) {
@@ -203,8 +205,8 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const graphicAreaH = height - insets.top - HEADER_H - BANNER_H - GNB_H
   const ARROW_H = 38  // arrowBtn padding(8)*2 + icon(22)
   const BLOCK_H = 380 + 8 + ARROW_H
-  // 0.29 비율 → 피그마 기준 행성+태그 위치 (완전 중앙보다 위쪽)
-  const centerOffset = Math.max(0, Math.round((graphicAreaH - BLOCK_H) * 0.29))
+  // 0.15 비율 → 피그마 기준 행성+태그 위치 (위쪽)
+  const centerOffset = Math.max(0, Math.round((graphicAreaH - BLOCK_H) * 0.15))
   const bannerTop = insets.top + HEADER_H
   const planetTopFallback = insets.top + HEADER_H + BANNER_H + centerOffset
   const arrowTopFallback  = planetTopFallback + 380 + 8
@@ -348,10 +350,10 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           </Animated.View>
         </View>
 
-        {/* Arrow navigation */}
+        {/* Arrow navigation — 튜토리얼 step 2에서 highlight가 위에 뜨므로 실제는 숨김 */}
         <View
           ref={arrowRowRef}
-          style={styles.arrowRow}
+          style={[styles.arrowRow, tutorialStep === 2 && { opacity: 0 }]}
           onLayout={() => {
             arrowRowRef.current?.measureInWindow((_, y) => setHlArrowY(y))
           }}
@@ -501,17 +503,17 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
         >
           <View style={styles.tooltipBox}>
             <Text style={styles.tooltipText}>
-              {'위로가 된 글과 사진은 별이 되어\n나의 우주를 채워요.'}
+              {'위로가 된 글과 사진은 별이\n되어 나의 우주를 채워요.'}
             </Text>
           </View>
           <View style={styles.tooltipCaretDown} />
         </View>
       )}
 
-      {/* Step 1 하이라이트: 측정 완료 후만 렌더 (2개 레이아웃 방지) */}
-      {tutorialStep === 1 && hlPlanetY !== null && (
+      {/* Step 1 하이라이트: 측정 전엔 fallback 위치 사용 */}
+      {tutorialStep === 1 && (
         <View
-          style={{ position: 'absolute', top: hlPlanetY, width, height: 380, zIndex: 101 }}
+          style={{ position: 'absolute', top: hlPlanetY ?? planetTopFallback, width, height: 380, zIndex: 101 }}
           pointerEvents="none"
         >
           <View style={styles.planetContainer}>

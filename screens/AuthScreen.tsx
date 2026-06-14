@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   spacer: { flex: 1 },
 
   bottomSection: {
-    paddingBottom: 64,
+    paddingBottom: 88,
     gap: 14,
   },
   disabled: { opacity: 0.6 },

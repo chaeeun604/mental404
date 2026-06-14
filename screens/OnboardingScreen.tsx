@@ -15,7 +15,7 @@ const SLIDES = [
   { text: 'MORBIT과 함께\n첫 별을 🌟 기록해볼까요?' },
 ] as const
 
-const HOLD_MS   = 3000
+const HOLD_MS   = 2000
 const ENTER_MS  = 500
 const EXIT_MS   = 480
 const ENTER_Y   = 30
