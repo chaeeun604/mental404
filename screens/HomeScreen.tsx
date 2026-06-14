@@ -25,6 +25,7 @@ import PlanetGraphic from '../components/PlanetGraphic'
 import StarField from '../components/StarField'
 import ContentBubble from '../components/ContentBubble'
 import GNB from '../components/GNB'
+import SparkleIcon from '../components/SparkleIcon'
 import { Colors } from '../constants/colors'
 import type { ScreenProps } from '../types/navigation'
 import type { ContentWithTags, TagRow } from '../types/database'
@@ -729,7 +730,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
               style={styles.bannerGradient}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-                <Text style={styles.bannerStar}>✦</Text>
+                <SparkleIcon size={18} />
                 <Text style={styles.bannerText}>오늘의 별똥별이 도착했어요.</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={Colors.textPrimary} />
@@ -819,7 +820,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
   },
-  bannerStar: { fontSize: 22, color: Colors.textPrimary },
   bannerText: { fontSize: 14, color: Colors.textPrimary, fontWeight: '500' },
   loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
