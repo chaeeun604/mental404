@@ -49,17 +49,18 @@ async function markTutorialSeen(): Promise<void> {
 }
 
 const { width, height } = Dimensions.get('window')
-const PLANET_SIZE = 290
+const PLANET_SIZE = 300
 
-// 버블 위치 — 피그마 기준, 화면 밖 넘침 방지
-const MAX_BUBBLE_W = 145  // ContentBubble textPill maxWidth
-const SAFE_PAD = 20
+// 버블 위치 — 피그마 수치 기준 (컨테이너 상단 기준 상대좌표)
+// 우측 버블은 right 앵커로 화면 밖 넘침 방지
+const MAX_BUBBLE_W = 145
 const BUBBLE_POSITIONS: Array<{ top?: number; bottom?: number; left?: number; right?: number }> = [
-  { top: 52,  left: 42 },
-  { top: 88,  left: Math.min(Math.round(width * 0.50), width - MAX_BUBBLE_W - SAFE_PAD) },
-  { top: 128, left: 24 },
-  { top: 162, left: Math.round(width * 0.26) },
-  { top: 210, left: Math.min(Math.round(width * 0.65), width - MAX_BUBBLE_W - SAFE_PAD) },
+  { top: 47,  left: 55  },   // 텍스트, 좌상단
+  { top: 86,  left: 206 },   // 텍스트, 우상단
+  { top: 102, left: 40  },   // 이미지, 좌
+  { top: 143, left: 118 },   // 텍스트, 중앙
+  { top: 197, right: 52 },   // 이미지, 우 (right 앵커: 텍스트도 안전)
+  { top: 242, left: 59  },   // 텍스트, 좌하단
 ]
 
 function truncate(text: string, max: number) {
@@ -193,7 +194,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     ? MOCK_CONTENTS.filter(c => c.content_tags?.some(ct => ct.tag_id === MOCK_TAGS[0].id))
     : tagContents
 
-  const MAX_SHOWN = 5
+  const MAX_SHOWN = 6
   const shownCards = displayTagContents.slice(0, MAX_SHOWN)
   const totalCount = displayTagContents.length
   const hasOverflow = totalCount > MAX_SHOWN
@@ -206,8 +207,8 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const ARROW_H = 38  // arrowBtn padding(8)*2 + icon(22)
   const PLANET_TAG_GAP = 31
   const BLOCK_H = 380 + PLANET_TAG_GAP + ARROW_H
-  // 0.25 비율 → 행성 위치 (조금 아래)
-  const centerOffset = Math.max(0, Math.round((graphicAreaH - BLOCK_H) * 0.25))
+  // 0.50 비율 → 피그마 기준 행성 위치 (수직 중앙)
+  const centerOffset = Math.max(0, Math.round((graphicAreaH - BLOCK_H) * 0.50))
   const bannerTop = insets.top + HEADER_H
   const planetTopFallback = insets.top + HEADER_H + BANNER_H + centerOffset
   const arrowTopFallback  = planetTopFallback + 380 + PLANET_TAG_GAP
@@ -378,26 +379,24 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
 
     const imageUrl = item.image_url && !item.image_url.startsWith('blob:') ? item.image_url : null
     if (item.type === 'image') {
-      // 텍스트 카드와 동일한 크기/배경, 이미지는 고정 높이 안에 cover+center
+      // width 350, height 80, 이미지 흐리게 배경, 날짜 오버레이
       return (
         <TouchableOpacity
           key={item.id}
-          style={styles.listCardText}
+          style={styles.listCardImage}
           onPress={() => navigation.navigate('ContentDetail', { contentId: item.id })}
           activeOpacity={0.85}
         >
-          <View style={styles.listImagePreview}>
-            {imageUrl ? (
-              <Image
-                source={{ uri: imageUrl }}
-                style={{ width: '100%', height: '100%' }}
-                resizeMode="cover"
-                onError={(e) => console.warn('[ListCard] image load error:', imageUrl, e.nativeEvent.error)}
-              />
-            ) : (
-              <Ionicons name="image-outline" size={28} color="#9A9FB3" />
-            )}
-          </View>
+          {imageUrl && (
+            <Image
+              source={{ uri: imageUrl }}
+              style={StyleSheet.absoluteFillObject}
+              resizeMode="cover"
+              blurRadius={12}
+              onError={(e) => console.warn('[ListCard] img err:', imageUrl, e.nativeEvent.error)}
+            />
+          )}
+          <View style={styles.listCardImageDim} />
           <View style={styles.listDateRow}>
             <Ionicons name="time-outline" size={16} color="#9A9FB3" />
             <Text style={styles.listDate}>{dateStr}</Text>
@@ -775,8 +774,8 @@ const styles = StyleSheet.create({
   },
   overflowBadge: {
     position: 'absolute',
-    bottom: 58,
-    right: 52,
+    bottom: 50,
+    right: 87,
   },
   overflowGradient: {
     width: 48,
@@ -844,21 +843,27 @@ const styles = StyleSheet.create({
   },
   listContent: { paddingHorizontal: 20, paddingBottom: 40, gap: 12 },
 
-  // Text card: #2d3052 bg, padded (image card도 동일 스타일 사용)
+  // Image card: width 350, height 80, 흐린 배경이미지 + 날짜
+  listCardImage: {
+    height: 80,
+    borderRadius: 15,
+    overflow: 'hidden',
+    backgroundColor: '#1a1d2e',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+  },
+  listCardImageDim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(5,9,40,0.50)',
+  },
+  // Text card: #2d3052 bg, padded
   listCardText: {
     backgroundColor: '#2d3052',
     borderRadius: 15,
     paddingHorizontal: 20,
     paddingVertical: 16,
     gap: 8,
-  },
-  listImagePreview: {
-    height: 120,
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#1a1d2e',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   listBody:    { fontSize: 14, color: '#fbfcfe', lineHeight: 20, fontFamily: 'Pretendard-Medium' },
   listDateRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
