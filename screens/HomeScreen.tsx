@@ -50,18 +50,21 @@ async function markTutorialSeen(): Promise<void> {
 
 const { width, height } = Dimensions.get('window')
 const PLANET_SIZE = 300
+const CONTAINER_H = 380   // planetContainer 높이 (행성+버블 공간)
+const PLANET_EXTRA = (CONTAINER_H - PLANET_SIZE) / 2  // = 40, 컨테이너 내 행성 위아래 여분
 
-// 버블 위치 — 피그마 수치 기준 (컨테이너 상단 기준 상대좌표)
-// 우측 버블은 right 앵커로 화면 밖 넘침 방지
-const MAX_BUBBLE_W = 145
+// 버블 위치 — 피그마 수치 기준 (컨테이너 상단 기준 절대좌표)
+// 타입별 슬롯 고정: 이미지→[2,4], 텍스트→[0,1,3,5]
 const BUBBLE_POSITIONS: Array<{ top?: number; bottom?: number; left?: number; right?: number }> = [
-  { top: 47,  left: 55  },   // 텍스트, 좌상단
-  { top: 86,  left: 206 },   // 텍스트, 우상단
-  { top: 102, left: 40  },   // 이미지, 좌
-  { top: 143, left: 118 },   // 텍스트, 중앙
-  { top: 197, right: 52 },   // 이미지, 우 (right 앵커: 텍스트도 안전)
-  { top: 242, left: 59  },   // 텍스트, 좌하단
+  { top: 47,  left: 55  },   // 0: 텍스트, 좌상단
+  { top: 86,  left: 206 },   // 1: 텍스트, 우상단
+  { top: 102, left: 40  },   // 2: 이미지, 좌
+  { top: 143, left: 118 },   // 3: 텍스트, 중앙
+  { top: 197, right: 52 },   // 4: 이미지, 우
+  { top: 242, left: 59  },   // 5: 텍스트, 좌하단
 ]
+const IMAGE_SLOTS = [2, 4]    // 이미지 전용 슬롯 인덱스
+const TEXT_SLOTS  = [0, 1, 3, 5]  // 텍스트 전용 슬롯 인덱스
 
 function truncate(text: string, max: number) {
   return text.length > max ? text.slice(0, max - 1) + '…' : text
@@ -194,28 +197,32 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     ? MOCK_CONTENTS.filter(c => c.content_tags?.some(ct => ct.tag_id === MOCK_TAGS[0].id))
     : tagContents
 
-  const MAX_SHOWN = 6
-  const shownCards = displayTagContents.slice(0, MAX_SHOWN)
-  const totalCount = displayTagContents.length
-  const hasOverflow = totalCount > MAX_SHOWN
-
   // 튜토리얼 하이라이트 위치 계산 (런타임 SafeArea 기반)
   const HEADER_H = 60
   const BANNER_H = 62  // bannerGradient(56) + marginBottom(6)
   const GNB_H = 16 + 56 + Math.max(insets.bottom, 20)
   const graphicAreaH = height - insets.top - HEADER_H - BANNER_H - GNB_H
-  const ARROW_H = 38  // arrowBtn padding(8)*2 + icon(22)
+  const ARROW_H = 38
   const PLANET_TAG_GAP = 31
-  const BLOCK_H = 380 + PLANET_TAG_GAP + ARROW_H
-  // 0.50 비율 → 피그마 기준 행성 위치 (수직 중앙)
+  // CONTAINER_H에서 marginBottom:-PLANET_EXTRA 적용 시 레이아웃 실효 높이 = CONTAINER_H-PLANET_EXTRA
+  // 행성 하단과 태그 nav 사이 간격 = PLANET_TAG_GAP (31px)
+  const BLOCK_H = (CONTAINER_H - PLANET_EXTRA) + PLANET_TAG_GAP + ARROW_H  // = 340+31+38 = 409
   const centerOffset = Math.max(0, Math.round((graphicAreaH - BLOCK_H) * 0.50))
   const bannerTop = insets.top + HEADER_H
   const planetTopFallback = insets.top + HEADER_H + BANNER_H + centerOffset
-  const arrowTopFallback  = planetTopFallback + 380 + PLANET_TAG_GAP
-  // Step1 툴팁: 배너 바로 아래 고정 (Figma 기준)
-  const TOOLTIP_H = 71  // box 60 + caret 11
-  const tooltip1Top = bannerTop + BANNER_H + 8
+  const arrowTopFallback  = planetTopFallback + (CONTAINER_H - PLANET_EXTRA) + PLANET_TAG_GAP
   const effectiveArrowTop = hlArrowY ?? arrowTopFallback
+
+  // 타입별 버블 슬롯 배치 (이미지→ 슬롯 2,4 / 텍스트→ 슬롯 0,1,3,5)
+  const dispImages = displayTagContents.filter(c => c.type === 'image').slice(0, IMAGE_SLOTS.length)
+  const dispTexts  = displayTagContents.filter(c => c.type !== 'image').slice(0, TEXT_SLOTS.length)
+  const positionedBubbles = [
+    ...dispImages.map((item, i) => ({ item, posIdx: IMAGE_SLOTS[i] })),
+    ...dispTexts.map((item, i)  => ({ item, posIdx: TEXT_SLOTS[i] })),
+  ].sort((a, b) => a.posIdx - b.posIdx)
+  const totalCount  = displayTagContents.length
+  const totalShown  = positionedBubbles.length
+  const hasOverflow = totalCount > totalShown
 
   const listContents = selectedTagId
     ? contents.filter((c) => c.content_tags?.some((ct) => ct.tag_id === selectedTagId))
@@ -311,11 +318,11 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
               <PlanetGraphic tagIndex={displayTagIdx} size={PLANET_SIZE} />
             </TouchableOpacity>
 
-            {/* Floating content bubbles */}
-            {shownCards.map((item, idx) => (
+            {/* Floating content bubbles — 타입별 고정 슬롯 */}
+            {positionedBubbles.map(({ item, posIdx }) => (
               <TouchableOpacity
                 key={item.id}
-                style={[styles.bubble, BUBBLE_POSITIONS[idx]]}
+                style={[styles.bubble, BUBBLE_POSITIONS[posIdx]]}
                 onPress={() => {
                   if (!isTutorial) navigation.navigate('ContentDetail', { contentId: item.id })
                 }}
@@ -342,7 +349,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                   style={styles.overflowGradient}
                 >
-                  <Text style={styles.overflowText}>+{totalCount - MAX_SHOWN}</Text>
+                  <Text style={styles.overflowText}>+{totalCount - totalShown}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             )}
@@ -479,10 +486,10 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
         </TouchableOpacity>
       )}
 
-      {/* Step 1 툴팁 — 배너 아래 & 첫 버블 바로 위 */}
+      {/* Step 1 툴팁 — 피그마 좌표 (left:90, top:174) */}
       {tutorialStep === 1 && (
         <View
-          style={[styles.tooltipWrapper1, { top: tooltip1Top }]}
+          style={styles.tooltipWrapper1}
           pointerEvents="none"
         >
           <View style={styles.tooltipBox}>
@@ -505,8 +512,8 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
               <View style={styles.planetCenter}>
                 <PlanetGraphic tagIndex={displayTagIdx} size={PLANET_SIZE} />
               </View>
-              {shownCards.map((item, idx) => (
-                <View key={item.id} style={[styles.bubble, BUBBLE_POSITIONS[idx]]}>
+              {positionedBubbles.map(({ item, posIdx }) => (
+                <View key={item.id} style={[styles.bubble, BUBBLE_POSITIONS[posIdx]]}>
                   <ContentBubble item={item} localSource={MOCK_LOCAL_SOURCES[item.id]} />
                 </View>
               ))}
@@ -517,7 +524,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
                     start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                     style={styles.overflowGradient}
                   >
-                    <Text style={styles.overflowText}>+{totalCount - MAX_SHOWN}</Text>
+                    <Text style={styles.overflowText}>+{totalCount - totalShown}</Text>
                   </LinearGradient>
                 </View>
               )}
@@ -752,17 +759,18 @@ const styles = StyleSheet.create({
   },
   planetContainer: {
     width: width,
-    height: 380,
+    height: CONTAINER_H,
     overflow: 'hidden',
+    marginBottom: -PLANET_EXTRA,  // 행성 하단~태그 시각 간격 = PLANET_TAG_GAP(31px)
   },
   planetSlide: {
     position: 'absolute',
     width: width,
-    height: 380,
+    height: CONTAINER_H,
   },
   planetCenter: {
     position: 'absolute',
-    top: (380 - PLANET_SIZE) / 2,
+    top: PLANET_EXTRA,
     left: (width - PLANET_SIZE) / 2,
   },
   bubble: {
