@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, ScrollView } from 'react-native'
 import Cropper from 'react-easy-crop'
 import type { Area, Point } from 'react-easy-crop'
 
@@ -42,9 +42,10 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<{ uri: 
 
 const ASPECT_OPTIONS = [
   { label: '1:1',  value: 1 },
+  { label: '4:3',  value: 4 / 3 },
+  { label: '16:9', value: 16 / 9 },
   { label: '3:4',  value: 3 / 4 },
   { label: '9:16', value: 9 / 16 },
-  { label: '4:3',  value: 4 / 3 },
 ] as const
 
 export default function ImageCropModal({ visible, imageUri, onConfirm, onCancel }: Props) {
@@ -139,7 +140,12 @@ export default function ImageCropModal({ visible, imageUri, onConfirm, onCancel 
       </View>
 
       {/* Aspect ratio selector */}
-      <View style={styles.aspectRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.aspectRow}
+        style={styles.aspectScroll}
+      >
         {ASPECT_OPTIONS.map((opt) => (
           <TouchableOpacity
             key={opt.label}
@@ -152,7 +158,7 @@ export default function ImageCropModal({ visible, imageUri, onConfirm, onCancel 
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       <Text style={styles.hint}>드래그하여 이동 · 스크롤/핀치로 확대</Text>
     </View>
@@ -197,11 +203,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
+  aspectScroll: { flexShrink: 0, flexGrow: 0 },
   aspectRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    alignItems: 'center',
     gap: 10,
     paddingVertical: 14,
+    paddingHorizontal: 20,
   },
   aspectBtn: {
     paddingHorizontal: 16,

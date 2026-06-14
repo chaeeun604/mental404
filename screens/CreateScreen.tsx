@@ -85,7 +85,7 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.85,
       base64: true,
-      allowsEditing: Platform.OS !== 'web',
+      allowsEditing: false,
     })
     if (!result.canceled && result.assets.length > 0) {
       const asset = result.assets[0]
@@ -385,7 +385,7 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
                   >
                     {imageUri ? (
                       <>
-                        <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                        <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFillObject} resizeMode="contain" />
                         <TouchableOpacity style={styles.changeImageBtn} onPress={pickImage}>
                           <Text style={styles.changeImageText}>수정</Text>
                         </TouchableOpacity>
