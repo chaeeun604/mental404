@@ -10,6 +10,7 @@ import {
   Image,
   TextInput,
   Platform,
+  Dimensions,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -30,6 +31,7 @@ export default function ContentDetailScreen({
   const [editBody, setEditBody] = useState('')
   const [editMemo, setEditMemo] = useState('')
   const [saving, setSaving] = useState(false)
+  const [imageAspect, setImageAspect] = useState<number | null>(null)
 
   useEffect(() => {
     getContentById(contentId)
@@ -38,6 +40,11 @@ export default function ContentDetailScreen({
         if (found) {
           setEditBody(found.body ?? '')
           setEditMemo(found.memo ?? '')
+          if (found.type === 'image' && found.image_url && !found.image_url.startsWith('blob:')) {
+            Image.getSize(found.image_url, (w, h) => {
+              if (w && h) setImageAspect(w / h)
+            }, () => {})
+          }
         }
       })
       .catch(() => Alert.alert('오류', '내용을 불러오지 못했어요.'))
@@ -181,14 +188,21 @@ export default function ContentDetailScreen({
           </View>
 
           {/* Image */}
-          {content.type === 'image' && content.image_url && !content.image_url.startsWith('blob:') ? (
-            <Image
-              source={{ uri: content.image_url }}
-              style={styles.image}
-              resizeMode="cover"
-              onError={(e) => console.warn('[Image] load error:', content.image_url, e.nativeEvent.error)}
-            />
-          ) : content.type === 'image' ? (
+          {content.type === 'image' && content.image_url && !content.image_url.startsWith('blob:') ? (() => {
+            const contentWidth = Dimensions.get('window').width - 40
+            const MAX_IMG_H = 400
+            const imgHeight = imageAspect
+              ? Math.min(contentWidth / imageAspect, MAX_IMG_H)
+              : 300
+            return (
+              <Image
+                source={{ uri: content.image_url }}
+                style={[styles.image, { height: imgHeight }]}
+                resizeMode="cover"
+                onError={(e) => console.warn('[Image] load error:', content.image_url, e.nativeEvent.error)}
+              />
+            )
+          })() : content.type === 'image' ? (
             <View style={[styles.image, { backgroundColor: '#2D3052', alignItems: 'center', justifyContent: 'center' }]}>
               <Text style={{ color: '#9A9AB3', fontSize: 13 }}>이미지를 불러올 수 없어요</Text>
             </View>
@@ -276,7 +290,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   tagChipText: { fontSize: 13, color: Colors.primaryLight, fontWeight: '500' },
-  image: { width: '100%', height: 300, borderRadius: 16 },
+  image: { width: '100%', borderRadius: 16 },
   bodyText: { fontSize: 16, color: Colors.textPrimary, lineHeight: 26 },
   editArea: {
     fontSize: 16,

@@ -89,7 +89,11 @@ export default function MyPageScreen({ navigation }: ScreenProps<'MyPage'>) {
   }
 
   const handleNotReady = () => {
-    Alert.alert('준비 중', '아직 준비중이에요.\n조금만 기다려주세요!')
+    if (Platform.OS === 'web') {
+      window.alert('서비스 준비중입니다.')
+      return
+    }
+    Alert.alert('안내', '서비스 준비중입니다.')
   }
 
   return (

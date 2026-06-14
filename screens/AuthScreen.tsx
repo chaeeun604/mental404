@@ -5,6 +5,7 @@ import {
   Platform, Animated, Easing,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import PixelLogo from '../components/PixelLogo'
@@ -71,9 +72,7 @@ export default function AuthScreen({ navigation }: ScreenProps<'Auth'>) {
         })
       }
 
-      const { getAllContents } = await import('../api/contents')
-      const contents = await getAllContents(user.id)
-      navigation.replace(contents.length === 0 ? 'Onboarding' : 'Home')
+      navigation.replace('Onboarding')
     } catch (e: any) {
       Alert.alert('카카오 로그인 오류', e?.message ?? '다시 시도해주세요.')
     } finally {
@@ -90,21 +89,28 @@ export default function AuthScreen({ navigation }: ScreenProps<'Auth'>) {
         }]} />
       ))}
 
-      <View style={styles.container}>
-        <Animated.View style={{ opacity: restOpacity }}>
-          <Text style={styles.tagline}>오늘의 별이 내일의 위로가 되도록</Text>
-        </Animated.View>
-
-        <Animated.View style={[styles.logoWrap, { transform: [{ translateY: logoY }] }]}>
-          <PixelLogo dotSize={5.538} gap={1.107} letterSpacing={4} />
-        </Animated.View>
-
-        <Animated.View style={[styles.bottomContent, { opacity: restOpacity }]}>
-          <View style={styles.constellationWrap}>
-            <ConstellationGraphic />
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <View style={styles.container}>
+          {/* 상단: 태그라인 + 로고 */}
+          <View style={styles.topSection}>
+            <Animated.View style={{ opacity: restOpacity }}>
+              <Text style={styles.tagline}>오늘의 별이 내일의 위로가 되도록</Text>
+            </Animated.View>
+            <Animated.View style={{ transform: [{ translateY: logoY }] }}>
+              <PixelLogo dotSize={5.538} gap={1.107} letterSpacing={4} />
+            </Animated.View>
           </View>
 
-          <View style={styles.form}>
+          {/* 중앙: 별자리 그래픽 */}
+          <Animated.View style={[styles.constellationWrap, { opacity: restOpacity }]}>
+            <ConstellationGraphic />
+          </Animated.View>
+
+          {/* 유연한 여백 */}
+          <View style={styles.spacer} />
+
+          {/* 하단: 카카오 버튼 */}
+          <Animated.View style={[styles.bottomSection, { opacity: restOpacity }]}>
             <TouchableOpacity
               style={[styles.kakaoBtn, kakaoLoading && styles.disabled]}
               onPress={handleKakao}
@@ -120,35 +126,50 @@ export default function AuthScreen({ navigation }: ScreenProps<'Auth'>) {
                 </>
               )}
             </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </View>
+            <Text style={styles.consent}>
+              로그인 시, 서비스 이용관련에 동의하는 것으로 간주합니다.
+            </Text>
+          </Animated.View>
+        </View>
+      </SafeAreaView>
     </LinearGradient>
   )
 }
 
 const styles = StyleSheet.create({
-  gradient:  { flex: 1 },
-  star:      { position: 'absolute', backgroundColor: '#fbfcfe', opacity: 0.5 },
+  gradient: { flex: 1 },
+  star:     { position: 'absolute', backgroundColor: '#fbfcfe', opacity: 0.5 },
+
+  safeArea:  { flex: 1 },
   container: {
     flex: 1,
+    paddingHorizontal: 24,
+  },
+
+  topSection: {
+    paddingTop: 108,
     alignItems: 'center',
-    paddingTop: 80,
-    paddingBottom: 40,
-    paddingHorizontal: 20,
+    gap: 20,
   },
   tagline: {
     fontSize: 15,
     color: '#acb5ff',
     fontFamily: 'Pretendard-Medium',
     textAlign: 'center',
-    marginBottom: 20,
     letterSpacing: 0.3,
   },
-  logoWrap:          { marginBottom: 20 },
-  bottomContent:     { alignItems: 'center', width: '100%' },
-  constellationWrap: { marginBottom: 28 },
-  form: { width: '100%', maxWidth: 350 },
+
+  constellationWrap: {
+    marginTop: 52,
+    alignItems: 'center',
+  },
+
+  spacer: { flex: 1 },
+
+  bottomSection: {
+    paddingBottom: 40,
+    gap: 14,
+  },
   disabled: { opacity: 0.6 },
   kakaoBtn: {
     backgroundColor: '#FEE500',
@@ -164,5 +185,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000000',
     fontFamily: 'Pretendard-SemiBold',
+  },
+  consent: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.3)',
+    fontFamily: 'Pretendard-Regular',
+    textAlign: 'center',
   },
 })

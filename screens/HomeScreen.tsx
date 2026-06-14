@@ -51,14 +51,13 @@ async function markTutorialSeen(): Promise<void> {
 const { width, height } = Dimensions.get('window')
 const PLANET_SIZE = 290
 
-// 버블 위치 — 행성 위에 고르게 분포 (피그마 기준)
-// 컨테이너: 전체 너비 × 380px, 행성(290px) 중앙 배치
+// 버블 위치 — 피그마 기준 행성 주변 배치
 const BUBBLE_POSITIONS: Array<{ top?: number; bottom?: number; left?: number; right?: number }> = [
-  { top: 55,  left: Math.round(width * 0.15) },  // 상단 왼쪽
-  { top: 88,  left: Math.round(width * 0.52) },  // 상단 오른쪽
-  { top: 155, left: Math.round(width * 0.10) },  // 중단 왼쪽 (이미지)
-  { top: 200, left: Math.round(width * 0.53) },  // 중단 오른쪽
-  { top: 268, left: Math.round(width * 0.16) },  // 하단 왼쪽
+  { top: 40,  left: 28 },                       // 상단 왼쪽
+  { top: 85,  left: Math.round(width * 0.52) }, // 상단 오른쪽
+  { top: 152, left: 16 },                       // 중단 왼쪽 (이미지)
+  { top: 200, left: Math.round(width * 0.53) }, // 중단 오른쪽
+  { top: 270, left: 44 },                       // 하단 왼쪽
 ]
 
 function truncate(text: string, max: number) {
@@ -104,6 +103,27 @@ const MOCK_CONTENTS: ContentWithTags[] = [
     id: 'mc-4', type: 'image',
     body: null,
     created_at: '2025-01-01T00:00:00Z',
+    user_id: '', image_url: null, memo: null, source: null, shown_at: null,
+    content_tags: [{ tag_id: 'mt-0', tags: MOCK_TAGS[0] }],
+  },
+  {
+    id: 'mc-5', type: 'text',
+    body: '나는 오늘도 괜찮다.',
+    created_at: '2024-12-31T00:00:00Z',
+    user_id: '', image_url: null, memo: null, source: null, shown_at: null,
+    content_tags: [{ tag_id: 'mt-0', tags: MOCK_TAGS[0] }],
+  },
+  {
+    id: 'mc-6', type: 'text',
+    body: '매일 조금씩 나아지고 있어.',
+    created_at: '2024-12-30T00:00:00Z',
+    user_id: '', image_url: null, memo: null, source: null, shown_at: null,
+    content_tags: [{ tag_id: 'mt-0', tags: MOCK_TAGS[0] }],
+  },
+  {
+    id: 'mc-7', type: 'text',
+    body: '지금 이 순간이 소중해.',
+    created_at: '2024-12-29T00:00:00Z',
     user_id: '', image_url: null, memo: null, source: null, shown_at: null,
     content_tags: [{ tag_id: 'mt-0', tags: MOCK_TAGS[0] }],
   },
@@ -154,9 +174,9 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     }, [loadContents, activeTab])
   )
 
-  // 홈 최초 진입 시 튜토리얼 (처음 방문한 경우에만)
+  // 테스트 기간: 매번 진입 시 튜토리얼 표시
   useEffect(() => {
-    hasTutorialSeen().then(seen => { if (!seen) setTutorialStep(1) })
+    setTutorialStep(1)
   }, [])
 
   const currentTag = tags[currentTagIdx] ?? null
@@ -317,7 +337,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                   style={styles.overflowGradient}
                 >
-                  <Text style={styles.overflowText}>+{totalCount}</Text>
+                  <Text style={styles.overflowText}>+{totalCount - MAX_SHOWN}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             )}
@@ -510,7 +530,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
                     start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                     style={styles.overflowGradient}
                   >
-                    <Text style={styles.overflowText}>+{totalCount}</Text>
+                    <Text style={styles.overflowText}>+{totalCount - MAX_SHOWN}</Text>
                   </LinearGradient>
                 </View>
               )}
@@ -756,8 +776,8 @@ const styles = StyleSheet.create({
   },
   overflowBadge: {
     position: 'absolute',
-    bottom: 52,
-    right: 48,
+    bottom: 58,
+    right: 52,
   },
   overflowGradient: {
     width: 48,

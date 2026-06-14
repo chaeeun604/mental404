@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, ScrollView, Image, ActivityIndicator, Platform, Modal, Animated,
+  Alert, ScrollView, Image, ActivityIndicator, Platform, Modal, Animated, Dimensions,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -29,6 +29,7 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
   const [body, setBody]             = useState('')
   const [imageUri, setImageUri]     = useState<string | null>(null)
   const [imageBase64, setImageBase64] = useState<string | null>(null)
+  const [imageAspect, setImageAspect] = useState<number | null>(null)
   const [memo, setMemo]             = useState('')
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
   const [saving, setSaving]         = useState(false)
@@ -82,10 +83,15 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.85,
       base64: true,
+      allowsEditing: true,
     })
     if (!result.canceled && result.assets.length > 0) {
-      setImageUri(result.assets[0].uri)
-      setImageBase64(result.assets[0].base64 ?? null)
+      const asset = result.assets[0]
+      setImageUri(asset.uri)
+      setImageBase64(asset.base64 ?? null)
+      if (asset.width && asset.height) {
+        setImageAspect(asset.width / asset.height)
+      }
     }
   }
 
@@ -353,27 +359,34 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
                   textAlignVertical="top"
                   autoFocus
                 />
-              ) : (
-                <TouchableOpacity
-                  style={styles.imagePicker}
-                  onPress={pickImage}
-                  activeOpacity={0.85}
-                >
-                  {imageUri ? (
-                    <>
-                      <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-                      <TouchableOpacity style={styles.changeImageBtn} onPress={pickImage}>
-                        <Text style={styles.changeImageText}>수정</Text>
-                      </TouchableOpacity>
-                    </>
-                  ) : (
-                    <>
-                      <Ionicons name="add-circle-outline" size={44} color={Colors.textTertiary} />
-                      <Text style={styles.imagePickerText}>사진 업로드 해주세요</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              )}
+              ) : (() => {
+                const contentWidth = Dimensions.get('window').width - 40
+                const MAX_IMG_H = 400
+                const pickerHeight = imageUri && imageAspect
+                  ? Math.min(contentWidth / imageAspect, MAX_IMG_H)
+                  : 240
+                return (
+                  <TouchableOpacity
+                    style={[styles.imagePicker, { height: pickerHeight }]}
+                    onPress={pickImage}
+                    activeOpacity={0.85}
+                  >
+                    {imageUri ? (
+                      <>
+                        <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                        <TouchableOpacity style={styles.changeImageBtn} onPress={pickImage}>
+                          <Text style={styles.changeImageText}>수정</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <>
+                        <Ionicons name="add-circle-outline" size={44} color={Colors.textTertiary} />
+                        <Text style={styles.imagePickerText}>사진 업로드 해주세요</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )
+              })()}
 
               <View style={styles.memoBlock}>
                 <Text style={styles.memoLabel}>이건 왜 저장했어요?</Text>
@@ -584,7 +597,6 @@ const styles = StyleSheet.create({
 
   // 이미지 선택
   imagePicker: {
-    height: 240,
     backgroundColor: 'rgba(39,41,54,0.8)',
     borderRadius: 16,
     borderWidth: 1,
