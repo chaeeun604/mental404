@@ -819,7 +819,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
   },
-  bannerStar: { fontSize: 18, color: Colors.textPrimary },
+  bannerStar: { fontSize: 22, color: Colors.textPrimary },
   bannerText: { fontSize: 14, color: Colors.textPrimary, fontWeight: '500' },
   loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
