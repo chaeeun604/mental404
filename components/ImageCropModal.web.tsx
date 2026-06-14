@@ -41,10 +41,10 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<{ uri: 
 }
 
 const ASPECT_OPTIONS = [
-  { label: '1:1', value: 1 },
-  { label: '4:3', value: 4 / 3 },
-  { label: '3:4', value: 3 / 4 },
-  { label: '16:9', value: 16 / 9 },
+  { label: '1:1',  value: 1 },
+  { label: '3:4',  value: 3 / 4 },
+  { label: '9:16', value: 9 / 16 },
+  { label: '4:3',  value: 4 / 3 },
 ] as const
 
 export default function ImageCropModal({ visible, imageUri, onConfirm, onCancel }: Props) {

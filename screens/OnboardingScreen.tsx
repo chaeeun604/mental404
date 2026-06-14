@@ -155,11 +155,14 @@ const styles = StyleSheet.create({
 
   tagsRow: {
     position: 'absolute',
-    top: 118,
-    left: 24,
+    top: 240,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
   tagChip: {
     borderWidth: 1,
@@ -177,7 +180,7 @@ const styles = StyleSheet.create({
 
   slideItem: {
     position: 'absolute',
-    top: 196,
+    top: 310,
     left: 24,
     right: 24,
   },
@@ -186,6 +189,7 @@ const styles = StyleSheet.create({
     color: '#fbfcfe',
     fontFamily: 'Pretendard-SemiBold',
     lineHeight: 36,
+    textAlign: 'center',
   },
 
   ctaWrap: {

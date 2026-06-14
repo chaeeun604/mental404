@@ -51,13 +51,13 @@ async function markTutorialSeen(): Promise<void> {
 const { width, height } = Dimensions.get('window')
 const PLANET_SIZE = 290
 
-// 버블 위치 — 피그마 기준 행성 주변 배치
+// 버블 위치 — 피그마 기준, 행성에 밀착
 const BUBBLE_POSITIONS: Array<{ top?: number; bottom?: number; left?: number; right?: number }> = [
-  { top: 40,  left: 28 },                       // 상단 왼쪽
-  { top: 85,  left: Math.round(width * 0.52) }, // 상단 오른쪽
-  { top: 152, left: 16 },                       // 중단 왼쪽 (이미지)
-  { top: 200, left: Math.round(width * 0.53) }, // 중단 오른쪽
-  { top: 270, left: 44 },                       // 하단 왼쪽
+  { top: 52,  left: 42 },                          // 상단 왼쪽
+  { top: 88,  left: Math.round(width * 0.50) },    // 상단 오른쪽
+  { top: 128, left: 24 },                          // 중단 왼쪽 (이미지)
+  { top: 162, left: Math.round(width * 0.26) },    // 중앙
+  { top: 210, left: Math.round(width * 0.65) },    // 하단 오른쪽 (이미지)
 ]
 
 function truncate(text: string, max: number) {
@@ -205,11 +205,11 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const GNB_H = 16 + 56 + Math.max(insets.bottom, 20)
   const graphicAreaH = height - insets.top - HEADER_H - BANNER_H - GNB_H
   const ARROW_H = 38  // arrowBtn padding(8)*2 + icon(22)
-  const BLOCK_H = 380 + 16 + ARROW_H
+  const BLOCK_H = 380 + 8 + ARROW_H
   const centerOffset = Math.max(0, (graphicAreaH - BLOCK_H) / 2)
   const bannerTop = insets.top + HEADER_H
   const planetTopFallback = insets.top + HEADER_H + BANNER_H + centerOffset
-  const arrowTopFallback  = planetTopFallback + 380 + 16
+  const arrowTopFallback  = planetTopFallback + 380 + 8
   const effectiveArrowTop = hlArrowY ?? arrowTopFallback
 
   const listContents = selectedTagId
@@ -382,7 +382,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           <Image
             source={{ uri: imageUrl }}
             style={StyleSheet.absoluteFillObject}
-            resizeMode="cover"
+            resizeMode="contain"
             onError={(e) => console.warn('[ListCard] image load error:', imageUrl, e.nativeEvent.error)}
           />
           <View style={styles.listCardOverlay} />
@@ -489,12 +489,12 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
         </TouchableOpacity>
       )}
 
-      {/* Step 1 툴팁 — 행성 하이라이트보다 위(zIndex 102)에 렌더링 */}
+      {/* Step 1 툴팁 — 배너 바로 아래, 캐럿이 행성을 가리킴 */}
       {tutorialStep === 1 && (
         <View
           style={[
             styles.tooltipWrapper1,
-            { top: (hlPlanetY ?? planetTopFallback) - 96 },
+            { top: bannerTop + BANNER_H + 10 },
           ]}
           pointerEvents="none"
         >
@@ -539,10 +539,10 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
         </View>
       )}
 
-      {/* Step 2 툴팁 — zIndex 102 */}
+      {/* Step 2 툴팁 — 화살표 바로 위, 캐럿이 화살표를 가리킴 */}
       {tutorialStep === 2 && (
         <View
-          style={[styles.tooltipWrapper2, { top: effectiveArrowTop - 96 }]}
+          style={[styles.tooltipWrapper2, { top: effectiveArrowTop - 88 }]}
           pointerEvents="none"
         >
           <View style={styles.tooltipBox}>
@@ -754,7 +754,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
+    gap: 8,
   },
   planetContainer: {
     width: width,
@@ -845,11 +845,12 @@ const styles = StyleSheet.create({
   },
   listContent: { paddingHorizontal: 20, paddingBottom: 40, gap: 12 },
 
-  // Image card: full-width, image fills card, overlay + date bottom-left
+  // Image card: full-width, photo centered (contain), dark bg, date bottom-left
   listCardImage: {
-    height: 80,
+    height: 160,
     borderRadius: 15,
     overflow: 'hidden',
+    backgroundColor: '#1a1d2e',
     justifyContent: 'flex-end',
     padding: 16,
   },
