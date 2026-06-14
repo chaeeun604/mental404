@@ -376,31 +376,8 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     })
 
     const imageUrl = item.image_url && !item.image_url.startsWith('blob:') ? item.image_url : null
-    if (item.type === 'image' && imageUrl) {
-      // Figma: full-width image card with dark overlay, date at bottom-left
-      return (
-        <TouchableOpacity
-          key={item.id}
-          style={styles.listCardImage}
-          onPress={() => navigation.navigate('ContentDetail', { contentId: item.id })}
-          activeOpacity={0.85}
-        >
-          <Image
-            source={{ uri: imageUrl }}
-            style={StyleSheet.absoluteFillObject}
-            resizeMode="contain"
-            onError={(e) => console.warn('[ListCard] image load error:', imageUrl, e.nativeEvent.error)}
-          />
-          <View style={styles.listCardOverlay} />
-          <View style={styles.listDateRow}>
-            <Ionicons name="time-outline" size={16} color="#9A9FB3" />
-            <Text style={styles.listDate}>{dateStr}</Text>
-          </View>
-        </TouchableOpacity>
-      )
-    }
-    if (item.type === 'image' && !imageUrl) {
-      // blob: URL이거나 없는 경우 텍스트 카드로 폴백
+    if (item.type === 'image') {
+      // 텍스트 카드와 동일한 크기/배경, 이미지는 고정 높이 안에 cover+center
       return (
         <TouchableOpacity
           key={item.id}
@@ -408,7 +385,18 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           onPress={() => navigation.navigate('ContentDetail', { contentId: item.id })}
           activeOpacity={0.85}
         >
-          <Ionicons name="image-outline" size={20} color="#9A9FB3" />
+          <View style={styles.listImagePreview}>
+            {imageUrl ? (
+              <Image
+                source={{ uri: imageUrl }}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="cover"
+                onError={(e) => console.warn('[ListCard] image load error:', imageUrl, e.nativeEvent.error)}
+              />
+            ) : (
+              <Ionicons name="image-outline" size={28} color="#9A9FB3" />
+            )}
+          </View>
           <View style={styles.listDateRow}>
             <Ionicons name="time-outline" size={16} color="#9A9FB3" />
             <Text style={styles.listDate}>{dateStr}</Text>
@@ -855,27 +843,21 @@ const styles = StyleSheet.create({
   },
   listContent: { paddingHorizontal: 20, paddingBottom: 40, gap: 12 },
 
-  // Image card: full-width, photo centered (contain), dark bg, date bottom-left
-  listCardImage: {
-    height: 160,
-    borderRadius: 15,
-    overflow: 'hidden',
-    backgroundColor: '#1a1d2e',
-    justifyContent: 'flex-end',
-    padding: 16,
-  },
-  listCardOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    borderRadius: 15,
-  },
-  // Text card: #2d3052 bg, padded
+  // Text card: #2d3052 bg, padded (image card도 동일 스타일 사용)
   listCardText: {
     backgroundColor: '#2d3052',
     borderRadius: 15,
     paddingHorizontal: 20,
     paddingVertical: 16,
     gap: 8,
+  },
+  listImagePreview: {
+    height: 120,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#1a1d2e',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   listBody:    { fontSize: 14, color: '#fbfcfe', lineHeight: 20, fontFamily: 'Pretendard-Medium' },
   listDateRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
