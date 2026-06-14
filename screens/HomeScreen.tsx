@@ -53,18 +53,100 @@ const PLANET_SIZE = 300
 const CONTAINER_H = 380   // planetContainer 높이 (행성+버블 공간)
 const PLANET_EXTRA = (CONTAINER_H - PLANET_SIZE) / 2  // = 40, 컨테이너 내 행성 위아래 여분
 
-// 버블 위치 — 피그마 수치 기준 (컨테이너 상단 기준 절대좌표)
-// 타입별 슬롯 고정: 이미지→[2,4], 텍스트→[0,1,3,5]
-const BUBBLE_POSITIONS: Array<{ top?: number; bottom?: number; left?: number; right?: number }> = [
-  { top: 47,  left: 55  },   // 0: 텍스트, 좌상단
-  { top: 86,  left: 206 },   // 1: 텍스트, 우상단
-  { top: 102, left: 40  },   // 2: 이미지, 좌
-  { top: 143, left: 118 },   // 3: 텍스트, 중앙
-  { top: 197, right: 52 },   // 4: 이미지, 우
-  { top: 242, left: 59  },   // 5: 텍스트, 좌하단
-]
-const IMAGE_SLOTS = [2, 4]    // 이미지 전용 슬롯 인덱스
-const TEXT_SLOTS  = [0, 1, 3, 5]  // 텍스트 전용 슬롯 인덱스
+// 행성 모양별 버블 위치 (6개, 컨테이너 상단 기준 절대좌표)
+// 행성은 container 내 top:40, left:45 위치에 300×300 렌더링
+const BUBBLE_POSITIONS_BY_PLANET: Record<number, Array<{ top?: number; bottom?: number; left?: number; right?: number }>> = {
+  // 0: 동그라미 (circle)
+  0: [
+    { top: 48,  left: 52  },
+    { top: 85,  left: 210 },
+    { top: 118, left: 35  },
+    { top: 152, left: 180 },
+    { top: 200, right: 50 },
+    { top: 248, left: 55  },
+  ],
+  // 1: 둥근 네모 (rounded square, tilted)
+  1: [
+    { top: 52,  left: 58  },
+    { top: 82,  left: 210 },
+    { top: 118, left: 35  },
+    { top: 155, left: 178 },
+    { top: 198, right: 48 },
+    { top: 248, left: 58  },
+  ],
+  // 2: 클로버 4잎 — 대각선 모서리 비어있으므로 십자 방향으로 배치
+  2: [
+    { top: 50,  left: 132 },
+    { top: 102, left: 35  },
+    { top: 108, right: 38 },
+    { top: 162, left: 108 },
+    { top: 218, right: 42 },
+    { top: 258, left: 112 },
+  ],
+  // 3: 꽃 5잎 (갈색)
+  3: [
+    { top: 48,  left: 128 },
+    { top: 88,  right: 42 },
+    { top: 122, left: 35  },
+    { top: 162, left: 172 },
+    { top: 215, right: 45 },
+    { top: 252, left: 62  },
+  ],
+  // 4: 세모 (rounded triangle) — 하단이 넓고 상단이 좁음
+  4: [
+    { top: 65,  left: 148 },
+    { top: 112, left: 238 },
+    { top: 115, left: 48  },
+    { top: 168, left: 118 },
+    { top: 215, right: 42 },
+    { top: 258, left: 55  },
+  ],
+  // 5: 꽃 5잎 파랑 (= 3과 같은 형태)
+  5: [
+    { top: 48,  left: 128 },
+    { top: 88,  right: 42 },
+    { top: 122, left: 35  },
+    { top: 162, left: 172 },
+    { top: 215, right: 45 },
+    { top: 252, left: 62  },
+  ],
+  // 6: 클로버 보라 (= 2와 같은 형태)
+  6: [
+    { top: 50,  left: 132 },
+    { top: 102, left: 35  },
+    { top: 108, right: 38 },
+    { top: 162, left: 108 },
+    { top: 218, right: 42 },
+    { top: 258, left: 112 },
+  ],
+  // 7: 동그라미 초록 (= 0과 같은 형태)
+  7: [
+    { top: 48,  left: 52  },
+    { top: 85,  left: 210 },
+    { top: 118, left: 35  },
+    { top: 152, left: 180 },
+    { top: 200, right: 50 },
+    { top: 248, left: 55  },
+  ],
+  // 8: 세모 갈색 (= 4와 같은 형태)
+  8: [
+    { top: 65,  left: 148 },
+    { top: 112, left: 238 },
+    { top: 115, left: 48  },
+    { top: 168, left: 118 },
+    { top: 215, right: 42 },
+    { top: 258, left: 55  },
+  ],
+  // 9: 둥근 네모 분홍 (= 1과 같은 형태)
+  9: [
+    { top: 52,  left: 58  },
+    { top: 82,  left: 210 },
+    { top: 118, left: 35  },
+    { top: 155, left: 178 },
+    { top: 198, right: 48 },
+    { top: 248, left: 58  },
+  ],
+}
 
 function truncate(text: string, max: number) {
   return text.length > max ? text.slice(0, max - 1) + '…' : text
@@ -213,13 +295,10 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const arrowTopFallback  = planetTopFallback + (CONTAINER_H - PLANET_EXTRA) + PLANET_TAG_GAP
   const effectiveArrowTop = hlArrowY ?? arrowTopFallback
 
-  // 타입별 버블 슬롯 배치 (이미지→ 슬롯 2,4 / 텍스트→ 슬롯 0,1,3,5)
-  const dispImages = displayTagContents.filter(c => c.type === 'image').slice(0, IMAGE_SLOTS.length)
-  const dispTexts  = displayTagContents.filter(c => c.type !== 'image').slice(0, TEXT_SLOTS.length)
-  const positionedBubbles = [
-    ...dispImages.map((item, i) => ({ item, posIdx: IMAGE_SLOTS[i] })),
-    ...dispTexts.map((item, i)  => ({ item, posIdx: TEXT_SLOTS[i] })),
-  ].sort((a, b) => a.posIdx - b.posIdx)
+  // 기록 순서대로 최대 6개 floating, 나머지는 +N 뱃지
+  const activePlanetIdx = displayTagIdx % 10
+  const planetBubblePositions = BUBBLE_POSITIONS_BY_PLANET[activePlanetIdx]
+  const positionedBubbles = displayTagContents.slice(0, 6).map((item, i) => ({ item, posIdx: i }))
   const totalCount  = displayTagContents.length
   const totalShown  = positionedBubbles.length
   const hasOverflow = totalCount > totalShown
@@ -318,11 +397,11 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
               <PlanetGraphic tagIndex={displayTagIdx} size={PLANET_SIZE} />
             </TouchableOpacity>
 
-            {/* Floating content bubbles — 타입별 고정 슬롯 */}
+            {/* Floating content bubbles — 기록 순서대로 최대 6개 */}
             {positionedBubbles.map(({ item, posIdx }) => (
               <TouchableOpacity
                 key={item.id}
-                style={[styles.bubble, BUBBLE_POSITIONS[posIdx]]}
+                style={[styles.bubble, planetBubblePositions[posIdx]]}
                 onPress={() => {
                   if (!isTutorial) navigation.navigate('ContentDetail', { contentId: item.id })
                 }}
@@ -486,10 +565,10 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
         </TouchableOpacity>
       )}
 
-      {/* Step 1 툴팁 — 피그마 좌표 (left:90, top:174) */}
+      {/* Step 1 툴팁 — 배너 하단 기준 동적 위치 */}
       {tutorialStep === 1 && (
         <View
-          style={styles.tooltipWrapper1}
+          style={[styles.tooltipWrapper1, { top: bannerTop + BANNER_H + 4 }]}
           pointerEvents="none"
         >
           <View style={styles.tooltipBox}>
@@ -513,7 +592,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
                 <PlanetGraphic tagIndex={displayTagIdx} size={PLANET_SIZE} />
               </View>
               {positionedBubbles.map(({ item, posIdx }) => (
-                <View key={item.id} style={[styles.bubble, BUBBLE_POSITIONS[posIdx]]}>
+                <View key={item.id} style={[styles.bubble, planetBubblePositions[posIdx]]}>
                   <ContentBubble item={item} localSource={MOCK_LOCAL_SOURCES[item.id]} />
                 </View>
               ))}
@@ -883,7 +962,6 @@ const styles = StyleSheet.create({
   },
   tooltipWrapper1: {
     position: 'absolute',
-    top: 174,
     left: (width - 210) / 2,
     width: 210,
     alignItems: 'center',
