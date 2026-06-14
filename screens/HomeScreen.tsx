@@ -148,7 +148,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const [activeTab, setActiveTab]     = useState<'report' | 'graphic' | 'list'>('graphic')
   const [currentTagIdx, setCurrentTagIdx] = useState(0)
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
-  const [tutorialStep, setTutorialStep] = useState<0 | 1 | 2 | 3 | 4>(0)
+  const [tutorialStep, setTutorialStep] = useState<0 | 1 | 2 | 3 | 4>(1)
   const [hlPlanetY, setHlPlanetY] = useState<number | null>(null)
   const [hlArrowY, setHlArrowY]   = useState<number | null>(null)
   const planetContainerRef = useRef<View>(null)
@@ -174,10 +174,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     }, [loadContents, activeTab])
   )
 
-  // 테스트 기간: 매번 진입 시 튜토리얼 표시
-  useEffect(() => {
-    setTutorialStep(1)
-  }, [])
+  // 테스트 기간: 초기값 1로 매번 튜토리얼 시작 (별도 useEffect 불필요)
 
   const currentTag = tags[currentTagIdx] ?? null
 
@@ -206,10 +203,17 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const graphicAreaH = height - insets.top - HEADER_H - BANNER_H - GNB_H
   const ARROW_H = 38  // arrowBtn padding(8)*2 + icon(22)
   const BLOCK_H = 380 + 8 + ARROW_H
-  const centerOffset = Math.max(0, (graphicAreaH - BLOCK_H) / 2)
+  // 0.29 비율 → 피그마 기준 행성+태그 위치 (완전 중앙보다 위쪽)
+  const centerOffset = Math.max(0, Math.round((graphicAreaH - BLOCK_H) * 0.29))
   const bannerTop = insets.top + HEADER_H
   const planetTopFallback = insets.top + HEADER_H + BANNER_H + centerOffset
   const arrowTopFallback  = planetTopFallback + 380 + 8
+  // Step1 툴팁: 배너 아래, 첫 버블(container top+52) 바로 위 8px
+  const TOOLTIP_H = 71  // box 60 + caret 11
+  const tooltip1Top = Math.max(
+    bannerTop + BANNER_H + 8,
+    (hlPlanetY ?? planetTopFallback) + 52 - TOOLTIP_H - 8
+  )
   const effectiveArrowTop = hlArrowY ?? arrowTopFallback
 
   const listContents = selectedTagId
@@ -282,7 +286,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     }
 
     return (
-      <View style={styles.graphicArea}>
+      <View style={[styles.graphicArea, { paddingTop: centerOffset }]}>
         {/* Planet container — planet centered, bubbles float around it, swipe to change tag */}
         <View
           ref={planetContainerRef}
@@ -489,13 +493,10 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
         </TouchableOpacity>
       )}
 
-      {/* Step 1 툴팁 — 배너 바로 아래, 캐럿이 행성을 가리킴 */}
+      {/* Step 1 툴팁 — 배너 아래 & 첫 버블 바로 위 */}
       {tutorialStep === 1 && (
         <View
-          style={[
-            styles.tooltipWrapper1,
-            { top: bannerTop + BANNER_H + 10 },
-          ]}
+          style={[styles.tooltipWrapper1, { top: tooltip1Top }]}
           pointerEvents="none"
         >
           <View style={styles.tooltipBox}>
@@ -507,10 +508,10 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
         </View>
       )}
 
-      {/* Step 1 하이라이트: 행성 + 버블 — measureInWindow로 측정된 정확한 Y 사용 */}
-      {tutorialStep === 1 && (
+      {/* Step 1 하이라이트: 측정 완료 후만 렌더 (2개 레이아웃 방지) */}
+      {tutorialStep === 1 && hlPlanetY !== null && (
         <View
-          style={{ position: 'absolute', top: hlPlanetY ?? planetTopFallback, width, height: 380, zIndex: 101 }}
+          style={{ position: 'absolute', top: hlPlanetY, width, height: 380, zIndex: 101 }}
           pointerEvents="none"
         >
           <View style={styles.planetContainer}>
@@ -584,7 +585,10 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
             end={{ x: 1, y: 0.5 }}
             style={styles.bannerGradient}
           >
-            <Text style={styles.bannerText}>✦ 오늘의 별똥별이 도착했어요.</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+              <Text style={styles.bannerStar}>✦</Text>
+              <Text style={styles.bannerText}>오늘의 별똥별이 도착했어요.</Text>
+            </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.textPrimary} />
           </LinearGradient>
         </View>
@@ -652,7 +656,10 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
               end={{ x: 1, y: 0.5 }}
               style={styles.bannerGradient}
             >
-              <Text style={styles.bannerText}>✦ 오늘의 별똥별이 도착했어요.</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                <Text style={styles.bannerStar}>✦</Text>
+                <Text style={styles.bannerText}>오늘의 별똥별이 도착했어요.</Text>
+              </View>
               <Ionicons name="chevron-forward" size={16} color={Colors.textPrimary} />
             </LinearGradient>
           </TouchableOpacity>
@@ -740,6 +747,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
   },
+  bannerStar: { fontSize: 18, color: Colors.textPrimary },
   bannerText: { fontSize: 14, color: Colors.textPrimary, fontWeight: '500' },
   loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -753,7 +761,7 @@ const styles = StyleSheet.create({
   graphicArea: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: 8,
   },
   planetContainer: {

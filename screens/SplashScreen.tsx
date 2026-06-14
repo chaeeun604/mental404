@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react'
 import { Animated, StyleSheet } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useAuth } from '../hooks/useAuth'
-import { getAllContents } from '../api/contents'
 import PixelLogo from '../components/PixelLogo'
 import type { RootStackParamList } from '../types/navigation'
 import type { ScreenProps } from '../types/navigation'
@@ -25,13 +24,8 @@ export default function SplashScreen({ navigation }: ScreenProps<'Splash'>) {
 
     const go = async () => {
       navigated.current = true
-      let target: keyof RootStackParamList = 'Auth'
-      if (session) {
-        try {
-          const contents = await getAllContents(session.user.id)
-          target = contents.length === 0 ? 'Onboarding' : 'Home'
-        } catch { target = 'Home' }
-      }
+      // 테스트 기간: 로그인 상태이면 항상 온보딩으로
+      let target: keyof RootStackParamList = session ? 'Onboarding' : 'Auth'
       navigation.replace(target)
     }
 
