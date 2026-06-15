@@ -135,7 +135,7 @@ export default function OnboardingScreen({ navigation }: ScreenProps<'Onboarding
           <Text style={styles.ctaText}>{SLIDES[3].text}</Text>
           <View style={styles.ctaStarRow}>
             <Text style={styles.ctaText}>첫 별을 </Text>
-            <OnboardingStar size={25} />
+            <OnboardingStar size={26} />
             <Text style={styles.ctaText}> 기록해볼까요?</Text>
           </View>
         </Animated.View>
