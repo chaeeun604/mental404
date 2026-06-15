@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native
 import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import StarField from '../components/StarField'
+import SparkleIcon from '../components/SparkleIcon'
 import type { ScreenProps } from '../types/navigation'
 
 const SLIDES = [
@@ -12,7 +13,7 @@ const SLIDES = [
   },
   { text: 'MORBIT에 차곡차곡\n쌓아보세요.' },
   { text: '필요한 순간에 꺼내보며\n마음의 힘을 기를 수 있어요.' },
-  { text: 'MORBIT과 함께\n첫 별을 🌟 기록해볼까요?' },
+  { text: 'MORBIT과 함께' },
 ] as const
 
 const HOLD_MS   = 2000
@@ -132,6 +133,11 @@ export default function OnboardingScreen({ navigation }: ScreenProps<'Onboarding
           pointerEvents={slideIdx === 3 ? 'auto' : 'none'}
         >
           <Text style={styles.ctaText}>{SLIDES[3].text}</Text>
+          <View style={styles.ctaStarRow}>
+            <Text style={styles.ctaText}>첫 별을 </Text>
+            <SparkleIcon size={26} color="#fbfcfe" />
+            <Text style={styles.ctaText}> 기록해볼까요?</Text>
+          </View>
         </Animated.View>
 
         {/* 시작하기 버튼 */}
@@ -204,6 +210,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Pretendard-SemiBold',
     lineHeight: 40,
     textAlign: 'center',
+  },
+  ctaStarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   btnWrap: {
