@@ -1,3 +1,4 @@
+import { Platform, Image } from 'react-native'
 import { SvgXml } from 'react-native-svg'
 
 const SVG = `<svg width="83" height="83" viewBox="0 0 83 83" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -23,10 +24,22 @@ const SVG = `<svg width="83" height="83" viewBox="0 0 83 83" fill="none" xmlns="
 </defs>
 </svg>`
 
+// 웹: 브라우저가 SVG filter를 직접 렌더링 (data URI)
+// 네이티브: react-native-svg의 SvgXml
+const SVG_URI = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(SVG)}`
+
 interface Props {
   size?: number
 }
 
 export default function OnboardingStar({ size = 50 }: Props) {
+  if (Platform.OS === 'web') {
+    return (
+      <Image
+        source={{ uri: SVG_URI }}
+        style={{ width: size, height: size }}
+      />
+    )
+  }
   return <SvgXml xml={SVG} width={size} height={size} />
 }
