@@ -658,7 +658,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
             style={styles.bannerGradient}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-              <Text style={styles.bannerStar}>✦</Text>
+              <SparkleIcon size={16} />
               <Text style={styles.bannerText}>오늘의 별똥별이 도착했어요.</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.textPrimary} />
