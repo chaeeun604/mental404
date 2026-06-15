@@ -10,7 +10,6 @@ import {
   Image,
   TextInput,
   Platform,
-  Dimensions,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -188,21 +187,14 @@ export default function ContentDetailScreen({
           </View>
 
           {/* Image */}
-          {content.type === 'image' && content.image_url && !content.image_url.startsWith('blob:') ? (() => {
-            const contentWidth = Dimensions.get('window').width - 40
-            const MAX_IMG_H = 400
-            const imgHeight = imageAspect
-              ? Math.min(contentWidth / imageAspect, MAX_IMG_H)
-              : 300
-            return (
-              <Image
-                source={{ uri: content.image_url }}
-                style={[styles.image, { height: imgHeight }]}
-                resizeMode="cover"
-                onError={(e) => console.warn('[Image] load error:', content.image_url, e.nativeEvent.error)}
-              />
-            )
-          })() : content.type === 'image' ? (
+          {content.type === 'image' && content.image_url && !content.image_url.startsWith('blob:') ? (
+            <Image
+              source={{ uri: content.image_url }}
+              style={[styles.image, imageAspect ? { aspectRatio: imageAspect } : { height: 300 }]}
+              resizeMode="contain"
+              onError={(e) => console.warn('[Image] load error:', content.image_url, e.nativeEvent.error)}
+            />
+          ) : content.type === 'image' ? (
             <View style={[styles.image, { backgroundColor: '#2D3052', alignItems: 'center', justifyContent: 'center' }]}>
               <Text style={{ color: '#9A9AB3', fontSize: 13 }}>이미지를 불러올 수 없어요</Text>
             </View>

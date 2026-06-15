@@ -5,7 +5,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
   ScrollView,
   ActivityIndicator,
   Image,
@@ -27,6 +26,7 @@ import ContentBubble from '../components/ContentBubble'
 import GNB from '../components/GNB'
 import SparkleIcon from '../components/SparkleIcon'
 import { Colors } from '../constants/colors'
+import { SCREEN_WIDTH as width, SCREEN_HEIGHT as height } from '../constants/layout'
 import type { ScreenProps } from '../types/navigation'
 import type { ContentWithTags, TagRow } from '../types/database'
 
@@ -49,7 +49,6 @@ async function markTutorialSeen(): Promise<void> {
   } catch {}
 }
 
-const { width, height } = Dimensions.get('window')
 const PLANET_SIZE = 300
 const CONTAINER_H = 380   // planetContainer 높이 (행성+버블 공간)
 const PLANET_EXTRA = (CONTAINER_H - PLANET_SIZE) / 2  // = 40, 컨테이너 내 행성 위아래 여분

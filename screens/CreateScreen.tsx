@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, ScrollView, Image, ActivityIndicator, Platform, Modal, Animated, Dimensions,
+  Alert, ScrollView, Image, ActivityIndicator, Platform, Modal, Animated,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -12,6 +12,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useTags } from '../hooks/useTags'
 import { createContent, uploadImage } from '../api/contents'
 import { Colors } from '../constants/colors'
+import { SCREEN_WIDTH } from '../constants/layout'
 import type { ScreenProps } from '../types/navigation'
 import type { ContentRow } from '../types/database'
 
@@ -372,7 +373,7 @@ export default function CreateScreen({ navigation }: ScreenProps<'Create'>) {
                   autoFocus
                 />
               ) : (() => {
-                const contentWidth = Dimensions.get('window').width - 40
+                const contentWidth = SCREEN_WIDTH - 40
                 const MAX_IMG_H = 400
                 const pickerHeight = imageUri && imageAspect
                   ? Math.min(contentWidth / imageAspect, MAX_IMG_H)

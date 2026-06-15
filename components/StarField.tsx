@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
-import { View, StyleSheet, Dimensions } from 'react-native'
-
-const { width, height } = Dimensions.get('window')
+import { View, StyleSheet } from 'react-native'
+import { SCREEN_WIDTH as width, SCREEN_HEIGHT as height } from '../constants/layout'
 
 // 작은 별 100개 + 밝은 별 20개
 const SMALL_COUNT  = 100
