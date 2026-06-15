@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { Ionicons } from '@expo/vector-icons'
 import StarField from '../components/StarField'
-import SparkleIcon from '../components/SparkleIcon'
 import type { ScreenProps } from '../types/navigation'
 
 const SLIDES = [
@@ -135,7 +135,7 @@ export default function OnboardingScreen({ navigation }: ScreenProps<'Onboarding
           <Text style={styles.ctaText}>{SLIDES[3].text}</Text>
           <View style={styles.ctaStarRow}>
             <Text style={styles.ctaText}>첫 별을 </Text>
-            <SparkleIcon size={26} color="#fbfcfe" />
+            <Ionicons name="star" size={22} color="#fbfcfe" />
             <Text style={styles.ctaText}> 기록해볼까요?</Text>
           </View>
         </Animated.View>
