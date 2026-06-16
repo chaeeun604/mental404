@@ -36,7 +36,8 @@
       "package": "com.mental404.app"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "icon": "./assets/icon.png"
     },
     "plugins": [
       "expo-secure-store",
