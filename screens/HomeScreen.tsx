@@ -236,7 +236,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
   const [activeTab, setActiveTab]     = useState<'report' | 'graphic' | 'list'>('graphic')
   const [currentTagIdx, setCurrentTagIdx] = useState(0)
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
-  const [tutorialStep, setTutorialStep] = useState<0 | 1 | 2 | 3 | 4>(1)
+  const [tutorialStep, setTutorialStep] = useState<0 | 1 | 2 | 3 | 4>(0)
   const [hlPlanetY, setHlPlanetY] = useState<number | null>(null)
   const [hlArrowY, setHlArrowY]   = useState<number | null>(null)
   const planetContainerRef = useRef<View>(null)
@@ -262,7 +262,9 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
     }, [loadContents, activeTab])
   )
 
-  // 테스트 기간: 초기값 1로 매번 튜토리얼 시작 (별도 useEffect 불필요)
+  useEffect(() => {
+    hasTutorialSeen().then(seen => { if (!seen) setTutorialStep(1) })
+  }, [])
 
   const currentTag = tags[currentTagIdx] ?? null
 
